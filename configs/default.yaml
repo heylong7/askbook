@@ -1,0 +1,13 @@
+# 主配置模板：复制本文件并按需修改
+log_level: INFO
+
+llm:
+  provider: ollama
+  model: qwen2.5:7b
+
+embedding:
+  provider: bge-m3
+  model: BAAI/bge-m3
+
+vectorstore:
+  provider: chroma

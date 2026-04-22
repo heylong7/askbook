@@ -1,0 +1,47 @@
+# askbook 随包默认配置（真相唯一来源）
+log_level: INFO
+data_dir: ~/.askbook
+
+llm:
+  provider: ollama
+  model: qwen2.5:7b
+  temperature: 0.1
+  max_tokens: 4096
+  fallback_chain: []
+  token_limit_per_call: 8000
+  quota_per_hour: 100
+
+embedding:
+  provider: bge-m3
+  model: BAAI/bge-m3
+  normalize: true
+  device: auto
+  batch_size: 32
+
+vectorstore:
+  provider: chroma
+  path: ~/.askbook/chroma
+
+ingestion:
+  chunk_size: 600
+  chunk_overlap: 80
+  embed_concurrency: 4
+  vision_concurrency: 2
+  chroma_concurrency: 4
+
+query:
+  top_k: 10
+  rerank_top_k: 5
+  rrf_k: 60
+  enable_rewrite: false
+  enable_hyde: false
+  enable_llm_rerank: false
+
+mcp:
+  transport: stdio
+  system_prompt_max_tokens: 500
+
+observability:
+  trace_dir: ~/.askbook/traces
+  flush_interval_seconds: 1.0
+  pii_redaction: true

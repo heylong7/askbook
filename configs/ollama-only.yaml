@@ -1,0 +1,12 @@
+# 全本地化示例（零云端 API 成本）
+log_level: INFO
+
+llm:
+  provider: ollama
+  model: qwen2.5:7b
+  fallback_chain: []
+
+embedding:
+  provider: bge-m3
+  model: BAAI/bge-m3
+  device: cpu
