@@ -71,6 +71,7 @@
 | 2.0 | 2026-04-21 | 新增 Part B（第 15-29 章）+ 4 个附录；为 askbook RAG+MCP 项目定制 |
 | 2.1 | 2026-04-21 | 新增附录 E（8-阶段执行索引）；收紧 Ch 19 `RetrievalResult` 字段为 Harness 30.1.1 白名单版本（`snippet` 替代 `chunk`，禁止 `raw_text`/`full_content`/`page_content`） |
 | 2.2 | 2026-04-22 | Phase 0（Foundations）完成：骨架 + 抽象层 + CI 流水线就位；附录 E 阶段执行表更新进度状态 |
+| 2.3 | 2026-04-22 | Phase 1 执行进行中（Task 1.0–1.8 完成）：依赖安装 / IngestionResult / NullTraceWriter / 文档加载 / 文本分块 / Embedder / BM25 / ChromaVectorStore / 去重 / 7 节点已全部落地；Task 1.9–1.11（Pipeline 编排 / Registry 工厂 / CLI）待续；记录平台适配决策（chromadb 1.x API / langchain_text_splitters 替换） |
 
 ---
 
@@ -2241,6 +2242,143 @@ class QuerySpan(BaseModel):
 - ✅ DEV_SPEC v2.2 版本历史更新
 - ✅ CLAUDE.md 项目级编码指南
 
+## E.1b Phase 1 执行进度（2026-04-22，进行中）
+
+### 执行概况
+
+Phase 1 目标：实现 `askbook ingest <path>` 端到端可用，7 节点 Ingestion Pipeline 打通，Chroma + BM25 持久化双索引对齐。
+
+**执行起点**：Phase 0 的 46 个测试全绿。  
+**当前状态**：Task 1.0–1.8 已完成并提交（8 个 commit），测试数从 46 增至 ~80。
+
+---
+
+### ✅ 已完成任务（Task 1.0–1.8）
+
+#### Task 1.0 — 依赖安装与 mypy 覆盖（✅ 已提交）
+
+- 新增 runtime 依赖：`markitdown / chromadb>=0.6 / rank-bm25 / FlagEmbedding`
+- **平台适配**：计划用 `chromadb>=0.5,<0.6`，但该版本需 MSVC C++ 编译器（Windows 缺失）；改用 `chromadb>=0.6`（安装版本 1.5.8），API 有差异（见下方"遇到的问题"）
+- **平台适配**：`langchain-text-splitters` 因传递依赖 `sentence_transformers→pyarrow` 在本 Windows 环境导致段错误，**已从依赖中移除**（见 Task 1.3）
+- 追加 mypy `ignore_missing_imports` 覆盖规则（markitdown / chromadb / rank_bm25 / FlagEmbedding）
+- 新增 pytest marker `requires_bge_m3`
+
+#### Task 1.1 — IngestionResult + NullTraceWriter（✅ 已提交）
+
+- `src/askbook/core/models.py`：新增 `IngestionResult`（`extra="forbid"`，7 个字段）
+- `src/askbook/core/interfaces.py`：`PipelineContext` 扩展 8 个可选键（collection / source_path / new_chunks / stale_chunk_ids / existing_chunk_ids / ingestion_result 等）
+- `src/askbook/observability/null_trace.py`：`NullTraceWriter` 实现 `TraceWriterProtocol`
+- 配套测试：`tests/unit/test_models.py`（2 个新测试）、`tests/unit/test_null_trace.py`（2 个测试）
+
+#### Task 1.2 — MarkItDown Document Loader（✅ 已提交）
+
+- `src/askbook/ingestion/loaders.py`：`MarkItDownLoader`，支持 `.md/.txt/.pdf/.docx/.html`
+- `doc_id = SHA256(abspath | mtime_ns)`，确保幂等
+- `iter_files(root)` 静态方法递归遍历目录
+- `examples/docs/hello.md` 和 `examples/docs/notes.txt` 样本文件
+- 配套测试：3 个单元测试全绿
+
+#### Task 1.3 — Recursive Text Splitter（✅ 已提交）
+
+- **实现决策**：计划用 `langchain_text_splitters.RecursiveCharacterTextSplitter`，但该包在本环境段错误（pyarrow 冲突）；改为**纯 Python 自行实现** `_split_text`（递归按分隔符分块 + overlap 合并，等效行为）
+- `src/askbook/splitters/recursive.py`：`RecursiveTextSplitter`，分隔符层级 `["\n\n", "\n", " ", ""]`
+- `chunk_id = SHA256(doc_id:idx:content)`（含位置避免均匀文本产生重复哈希）
+- 配套测试：4 个单元测试全绿
+
+#### Task 1.4 — Embedder（StubEmbedder + BGEM3Embedder）（✅ 已提交）
+
+- `src/askbook/embeddings/stub.py`：`StubEmbedder`（确定性哈希向量，query/passage 前缀分离）
+- `src/askbook/embeddings/bge_m3.py`：`BGEM3Embedder`（lazy 加载，不触发真实权重下载）
+- `tests/integration/test_bge_m3_live.py`：gate 在 `@pytest.mark.requires_bge_m3`，常规 CI 跳过
+- 配套单元测试 4 个全绿
+
+#### Task 1.5 — BM25 Persistent Index（✅ 已提交）
+
+- **实现决策**：计划用 `BM25Okapi`，但单文档时 IDF 为负数导致搜索返回空；改用 `BM25Plus`（非负评分，更适合小语料）
+- `src/askbook/vectorstores/bm25_index.py`：`BM25PersistentIndex`，pickle 持久化，支持 add / remove / search / save
+- 中英混合分词正则：`[A-Za-z0-9_]+|[一-鿿]`
+- 配套测试：4 个单元测试全绿
+
+#### Task 1.6 — ChromaVectorStore（✅ 已提交）
+
+- **平台适配**：chromadb 1.x 移除了 `IncludeEnum`；改为直接传字符串列表 `include=["documents","metadatas","distances"]`
+- **修复**：测试 helper `_make_chunks` 跨 doc 使用相同 `chunk_id`（c0,c1,c2）导致 upsert 覆盖 doc_id；改为 `f"{doc_id}-c{i}"` 确保唯一
+- `src/askbook/vectorstores/chroma_store.py`：实现 `VectorStoreABC`，额外暴露 `list_chunk_ids_by_doc`
+- 配套集成测试：4 个通过
+
+#### Task 1.7 — SHA256 Deduplicator（✅ 已提交）
+
+- `src/askbook/ingestion/dedup.py`：`SHA256Deduplicator.filter_new_chunks(new_chunks, existing_chunk_ids) -> (to_add, stale_ids)`
+- 4 场景测试：首次 / 全重复 / 部分更新 / 全删除，全绿
+
+#### Task 1.8 — 7 节点 Pipeline（✅ 已提交）
+
+- `src/askbook/ingestion/nodes.py`：7 个 `BasePipelineNode` 子类
+  - `DocumentLoaderNode` / `SplitterNode` / `EnrichmentNode`（passthrough）/ `DedupNode` / `EmbeddingNode` / `VectorStoreWriteNode` / `BM25IndexUpdateNode`
+- 每节点接收/返回 `PipelineContext`（不可变模式：`{**context, key: value}`）
+- `VectorStoreWriteNode._store_delete_ids` 直接调用 `ChromaVectorStore._get_collection().delete(ids=...)` 实现 chunk 级别删除
+- 配套单元测试：7 个全绿
+
+---
+
+### 🔄 待完成任务（Task 1.9–1.11）
+
+#### Task 1.9 — IngestionPipeline 编排 + 幂等性测试（下一步）
+
+- 创建 `src/askbook/ingestion/pipeline.py`：`IngestionPipeline.run(source, collection, dry_run, force_reindex) -> IngestionResult`
+- 文件已写入磁盘但测试**尚未运行验证**（用户中断了执行）
+- 需完成：
+  - `tests/unit/test_pipeline_idempotency.py`（已创建，待运行）
+  - `tests/integration/test_ingestion_pipeline.py`（已创建，待运行）
+  - 两测试中有 Chroma ephemeral client + StubEmbedder 的端到端验证
+
+#### Task 1.10 — Registry 工厂
+
+- 修改 `src/askbook/core/registry.py`：实现 `build_embedder`（stub / bge-m3）/ `build_vectorstore`（chroma）
+- `tests/unit/test_registry.py`：7 个测试（含工厂断言）
+- 依赖 `EmbeddingConfig.provider` / `VectorStoreConfig.provider` 字段
+
+#### Task 1.11 — CLI `askbook ingest`
+
+- 创建 `src/askbook/ingestion/cli.py`：`run_ingest(source, collection, settings, dry_run, force_reindex)`
+- 修改 `src/askbook/cli.py`：`ingest` 子命令接入 IngestionPipeline
+- `tests/integration/test_ingest_cli.py`：3 个 subprocess 测试（help / end-to-end / dry-run）
+
+---
+
+### ⚠️ 遇到的问题与解决方案
+
+| 问题 | 状态 | 解决方案 |
+|------|------|---------|
+| `chromadb>=0.5,<0.6` 需 MSVC C++ 编译器，Windows 无法安装 | ✅ 已解决 | 改用 `chromadb>=0.6`（当前 1.5.8），API 适配字符串 include 替代 IncludeEnum |
+| `langchain_text_splitters` 导入时因 `sentence_transformers→pyarrow` 在 Windows 导致段错误 | ✅ 已解决 | 纯 Python 重新实现 `RecursiveTextSplitter`，移除该依赖 |
+| `BM25Okapi` 在单文档场景返回负分导致搜索结果为空 | ✅ 已解决 | 改用 `BM25Plus`（非负评分） |
+| 测试 helper 跨 doc 使用相同 chunk_id 导致 Chroma upsert 覆盖 doc_id 元数据 | ✅ 已解决 | chunk_id 改为 `{doc_id}-c{i}` |
+| Task 1.9 pipeline 和测试文件已创建，但测试尚未运行 | 🔄 进行中 | 需在下次会话继续运行测试并修复问题 |
+
+---
+
+### 测试数量变化
+
+| 时间点 | 测试数 |
+|--------|--------|
+| Phase 0 完成时 | 46 |
+| Task 1.8 完成后（当前） | ~83（含 1 个 requires_bge_m3 跳过） |
+| Phase 1 目标 | ≥ 90 |
+
+---
+
+### 下次继续工作的起点
+
+1. **运行** `uv run pytest tests/unit/test_pipeline_idempotency.py tests/integration/test_ingestion_pipeline.py -v`，修复可能出现的问题
+2. 如果全绿，提交 Task 1.9 commit
+3. 继续执行 Task 1.10（Registry 工厂）
+4. 继续执行 Task 1.11（CLI ingest）
+5. 运行全量质量门禁 + 端到端验证
+6. 确认测试总数 ≥ 90，覆盖率 ≥ 80%
+
+---
+
 ## E.2 验收标准模板
 
 所有子任务统一三段式验收：
@@ -2290,7 +2428,7 @@ Phase 3 与 Phase 4 可在 Phase 2 完成后并行；其余严格顺序。
 |---|---|---|
 | 总览（8 阶段 + AC 模板） | `C:\Users\heylong\.claude\plans\dev-spec-tidy-journal.md` | ✅ 已定稿（v2.1） |
 | Phase 0 — Foundations | `C:\Users\heylong\.claude\plans\phase0-foundations-detail.md` | ✅ 完成（2026-04-22） |
-| Phase 1 — Ingestion MVP | `C:\Users\heylong\.claude\plans\phase1-ingestion-detail.md` | 🟡 待生成 |
+| Phase 1 — Ingestion MVP | `C:\Users\heylong\.claude\plans\phase1-ingestion-detail.md` | 🔄 执行中（Task 1.0–1.8 ✅，Task 1.9–1.11 待续） |
 | Phase 2 — Query MVP | `C:\Users\heylong\.claude\plans\phase2-query-detail.md` | 🟡 待生成 |
 | Phase 3 — MCP Server | `C:\Users\heylong\.claude\plans\phase3-mcp-detail.md` | 🟡 待生成 |
 | Phase 4 — Trace + Dashboard | `C:\Users\heylong\.claude\plans\phase4-observability-detail.md` | 🟡 待生成 |
