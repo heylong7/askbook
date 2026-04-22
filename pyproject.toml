@@ -12,6 +12,11 @@ dependencies = [
   "pyyaml>=6.0",
   "typer>=0.12",
   "structlog>=24.1",
+  "markitdown>=0.0.1a2",
+  "chromadb>=0.6",
+  "rank-bm25>=0.2.2",
+  "FlagEmbedding>=1.2.10",
+  "langchain-text-splitters>=0.2",
 ]
 
 [project.optional-dependencies]
@@ -64,6 +69,20 @@ disallow_untyped_defs = false
 module = ["askbook.cli"]
 disallow_untyped_decorators = false
 
+[[tool.mypy.overrides]]
+module = [
+  "markitdown",
+  "markitdown.*",
+  "chromadb",
+  "chromadb.*",
+  "rank_bm25",
+  "FlagEmbedding",
+  "FlagEmbedding.*",
+  "langchain_text_splitters",
+  "langchain_text_splitters.*",
+]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers --strict-config"
@@ -71,6 +90,7 @@ asyncio_mode = "auto"
 markers = [
   "requires_ollama: integration test that needs a local Ollama daemon",
   "requires_dashscope: integration test that needs DashScope API key",
+  "requires_bge_m3: integration test that downloads BGE-M3 weights",
 ]
 
 [tool.coverage.run]
