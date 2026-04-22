@@ -2191,6 +2191,56 @@ class QuerySpan(BaseModel):
 
 **全局约束（每阶段都必须保持）**：`ruff check` / `mypy --strict` / `pytest` 全绿 · 单元覆盖 ≥ 80% · Conventional Commits · 领域异常继承自 `AskbookError`（Ch 5） · structlog JSON 日志 · 无硬编码 Secret。
 
+## E.1a Phase 0 完成内容清单（2026-04-22）
+
+### 工程基础设施
+- ✅ Git 仓库初始化（main 分支）
+- ✅ Python 3.12 工具链（pyenv + uv）
+- ✅ 代码质量工具链配置（ruff + mypy --strict）
+- ✅ 测试框架与覆盖率门禁（pytest + pytest-cov ≥ 80%）
+- ✅ Pre-commit hooks（ruff + mypy + detect-secrets）
+- ✅ GitHub Actions CI 工作流（lint / typecheck / test / coverage）
+
+### 包结构与骨架
+- ✅ Src-layout 标准包结构（src/askbook/）
+- ✅ 16 个子包占位（providers/ / embeddings/ / vectorstores/ / ingestion/ / query/ / mcp_server/ / observability/ / evaluation/ / dashboard/ 等）
+- ✅ 顶级 `__init__.py` 暴露 `__version__ = "0.1.0"`
+- ✅ `__main__.py` 支持 `python -m askbook` 入口
+
+### CLI 入口点
+- ✅ Typer CLI 应用（askbook.cli）
+- ✅ 6 个子命令占位（ingest / query / eval / serve / migrate + 根命令）
+- ✅ `--version` 与 `--help` 支持
+- ✅ 集成测试验证（subprocess smoke tests）
+
+### 核心数据模型与抽象层
+- ✅ 10 个 Pydantic 模型：TokenUsage / LLMResponse / Document / Chunk / RetrievalResult / Citation / Answer / CollectionInfo / CollectionStats / QAPair
+- ✅ **Harness 30.1.1 硬约束**：RetrievalResult 字段白名单 + `snippet ≤ 200 chars` + `extra="forbid"` 拒绝 raw_text / full_content / page_content
+- ✅ 11 个领域异常类（AskbookError + 5 个 Ingestion / Query / Provider / MCP 分支）
+- ✅ 6 个 Protocol 定义（LLMProviderProtocol / EmbedderProtocol / RerankerProtocol / SplitterProtocol / TraceWriterProtocol）
+- ✅ 2 个 ABC 定义（VectorStoreABC + BasePipelineNode + BaseEvaluator）
+- ✅ ServiceRegistry 工厂模式shell（bind / get / build_* 占位）
+
+### 配置系统
+- ✅ Pydantic-settings 分层配置（YAML + .env + 环境变量）
+- ✅ 8 个配置子模型（LLMConfig / EmbeddingConfig / VectorStoreConfig / IngestionConfig / QueryConfig / MCPConfig / ObservabilityConfig）
+- ✅ 随包默认配置（src/askbook/config/defaults.yaml）
+- ✅ 示例配置文件（configs/default.yaml / configs/ollama-only.yaml）
+- ✅ `load_settings()` 实现环境变量覆盖优先级
+
+### 测试覆盖
+- ✅ 30+ 个单元测试（8 个测试文件）
+- ✅ 单元覆盖率 ≥ 80%（Phase 0 代码实现覆盖率 > 90%）
+- ✅ Protocol conformance 运行时检验（isinstance 判断）
+- ✅ ABC 抽象方法集合断言
+- ✅ Harness 30.1.1 RetrievalResult 白名单字段强制验证
+
+### 文档与规范
+- ✅ README.md 快速开始指南 + CI badge 占位
+- ✅ .env.example 环保变量模板
+- ✅ DEV_SPEC v2.2 版本历史更新
+- ✅ CLAUDE.md 项目级编码指南
+
 ## E.2 验收标准模板
 
 所有子任务统一三段式验收：
