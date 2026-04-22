@@ -1,6 +1,6 @@
-# askbook 开发规范 (DEV_SPEC) v2.0
+# askbook 开发规范 (DEV_SPEC) v2.2
 
-> 版本: 2.0 | 更新: 2026-04-21
+> 版本: 2.2 | 更新: 2026-04-22
 > 包名: `askbook` | Python 3.12+ | 布局: `src/askbook/`
 > 本文档定义 askbook RAG+MCP Server 项目的全生命周期开发标准。
 
@@ -70,6 +70,7 @@
 | 1.0 | 2026-04-21 | 初版：14 章通用 Python 规范 |
 | 2.0 | 2026-04-21 | 新增 Part B（第 15-29 章）+ 4 个附录；为 askbook RAG+MCP 项目定制 |
 | 2.1 | 2026-04-21 | 新增附录 E（8-阶段执行索引）；收紧 Ch 19 `RetrievalResult` 字段为 Harness 30.1.1 白名单版本（`snippet` 替代 `chunk`，禁止 `raw_text`/`full_content`/`page_content`） |
+| 2.2 | 2026-04-22 | Phase 0（Foundations）完成：骨架 + 抽象层 + CI 流水线就位；附录 E 阶段执行表更新进度状态 |
 
 ---
 
@@ -2238,7 +2239,7 @@ Phase 3 与 Phase 4 可在 Phase 2 完成后并行；其余严格顺序。
 | Phase | 详细计划文件 | 状态 |
 |---|---|---|
 | 总览（8 阶段 + AC 模板） | `C:\Users\heylong\.claude\plans\dev-spec-tidy-journal.md` | ✅ 已定稿（v2.1） |
-| Phase 0 — Foundations | `C:\Users\heylong\.claude\plans\phase0-foundations-detail.md` | ✅ 已定稿（v2.1） |
+| Phase 0 — Foundations | `C:\Users\heylong\.claude\plans\phase0-foundations-detail.md` | ✅ 完成（2026-04-22） |
 | Phase 1 — Ingestion MVP | `C:\Users\heylong\.claude\plans\phase1-ingestion-detail.md` | 🟡 待生成 |
 | Phase 2 — Query MVP | `C:\Users\heylong\.claude\plans\phase2-query-detail.md` | 🟡 待生成 |
 | Phase 3 — MCP Server | `C:\Users\heylong\.claude\plans\phase3-mcp-detail.md` | 🟡 待生成 |
@@ -2283,6 +2284,6 @@ python scripts/anti_pattern_check.py
 
 ---
 
-*DEV_SPEC v2.1 — askbook RAG+MCP Server 项目开发规范*
+*DEV_SPEC v2.2 — askbook RAG+MCP Server 项目开发规范*
 *如需更新，请提 PR 并在第 0 章版本历史中记录变更摘要*
 *阶段执行拆解见附录 E；同步更新时请同步 `plans/` 下对应的 detail 文件*
