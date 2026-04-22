@@ -114,3 +114,33 @@ def test_collection_stats() -> None:
 def test_qa_pair() -> None:
     qa = models.QAPair(question="q", answer="a", source_ids=["c1", "c2"])
     assert qa.source_ids == ["c1", "c2"]
+
+
+def test_ingestion_result_defaults() -> None:
+    from askbook.core.models import IngestionResult
+
+    r = IngestionResult(
+        docs_processed=3,
+        chunks_added=10,
+        chunks_reused=2,
+        chunks_deleted=1,
+        collection="kb_demo",
+        duration_seconds=1.5,
+    )
+    assert r.errors == []
+    assert r.collection == "kb_demo"
+
+
+def test_ingestion_result_forbids_extra_fields() -> None:
+    from askbook.core.models import IngestionResult
+
+    with pytest.raises(ValidationError):
+        IngestionResult(
+            docs_processed=1,
+            chunks_added=1,
+            chunks_reused=0,
+            chunks_deleted=0,
+            collection="x",
+            duration_seconds=0.1,
+            unknown_field="boom",  # type: ignore[call-arg]
+        )

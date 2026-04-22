@@ -76,6 +76,18 @@ class CollectionStats(BaseModel):
     last_updated: str
 
 
+class IngestionResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    docs_processed: int
+    chunks_added: int
+    chunks_reused: int
+    chunks_deleted: int
+    collection: str
+    duration_seconds: float
+    errors: list[str] = Field(default_factory=list)
+
+
 class QAPair(BaseModel):
     question: str
     answer: str
@@ -92,5 +104,6 @@ __all__ = [
     "Answer",
     "CollectionInfo",
     "CollectionStats",
+    "IngestionResult",
     "QAPair",
 ]

@@ -15,6 +15,7 @@ from askbook.core.models import (
     CollectionInfo,
     CollectionStats,
     Document,
+    IngestionResult,
     LLMResponse,
     QAPair,
     RetrievalResult,
@@ -158,10 +159,16 @@ class PipelineContext(TypedDict, total=False):
     """Shared context threaded through pipeline nodes."""
 
     query: str
+    collection: str
+    source_path: str
     documents: list[Document]
     chunks: list[Chunk]
+    new_chunks: list[Chunk]
+    stale_chunk_ids: list[str]
+    existing_chunk_ids: set[str]
     retrieval_results: list[RetrievalResult]
     answer: Answer
+    ingestion_result: IngestionResult
 
 
 # ====================================================================
