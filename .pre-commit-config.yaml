@@ -9,7 +9,12 @@ repos:
     rev: v1.11.0
     hooks:
       - id: mypy
-        additional_dependencies: [pydantic>=2.7, pydantic-settings>=2.3, types-PyYAML]
+        additional_dependencies:
+          - pydantic>=2.7
+          - pydantic-settings>=2.3
+          - types-PyYAML
+          - typer>=0.12
+          - structlog>=24.1
         args: [--strict]
         files: ^src/
   - repo: https://github.com/Yelp/detect-secrets
