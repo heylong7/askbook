@@ -16,7 +16,6 @@ dependencies = [
   "chromadb>=0.6",
   "rank-bm25>=0.2.2",
   "FlagEmbedding>=1.2.10",
-  "langchain-text-splitters>=0.2",
 ]
 
 [project.optional-dependencies]
@@ -78,8 +77,6 @@ module = [
   "rank_bm25",
   "FlagEmbedding",
   "FlagEmbedding.*",
-  "langchain_text_splitters",
-  "langchain_text_splitters.*",
 ]
 ignore_missing_imports = true
 
