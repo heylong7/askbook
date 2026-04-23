@@ -46,9 +46,23 @@ def ingest(
         str, typer.Option(help="Chroma collection name.")
     ] = "default",
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+    force_reindex: Annotated[bool, typer.Option("--force-reindex")] = False,
+    config: Annotated[
+        str, typer.Option("--config", help="Path to YAML config file.")
+    ] = "",
 ) -> None:
-    """Ingest documents into the vector store (Phase 1)."""
-    raise typer.Exit(code=0)
+    """Ingest documents into the vector store."""
+    from pathlib import Path as _Path
+
+    from askbook.ingestion.cli import run_ingest
+
+    run_ingest(
+        source=_Path(source),
+        collection=collection,
+        config_path=_Path(config) if config else None,
+        dry_run=dry_run,
+        force_reindex=force_reindex,
+    )
 
 
 @app.command()
