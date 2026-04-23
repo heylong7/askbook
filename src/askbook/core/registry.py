@@ -34,8 +34,23 @@ class ServiceRegistry:
 
     # Factory entry points --------------------------------------------
     def build_llm(self, config: Any) -> Any:
-        raise NotImplementedError(
-            "ServiceRegistry.build_llm is wired up in Phase 2 (Query MVP)."
+        from askbook.config.schema import LLMConfig
+
+        if not isinstance(config, LLMConfig):
+            raise TypeError(f"Expected LLMConfig, got {type(config)}")
+        provider = config.provider.lower()
+        if provider == "stub":
+            from askbook.providers.stub import StubLLMProvider
+
+            return StubLLMProvider(model=config.model)
+        if provider == "ollama":
+            from askbook.providers.ollama_qwen import OllamaQwenProvider
+
+            return OllamaQwenProvider(
+                model=config.model, temperature=config.temperature
+            )
+        raise ValueError(
+            f"Unknown LLM provider {config.provider!r}. Supported: 'stub', 'ollama'."
         )
 
     def build_embedder(self, config: EmbeddingConfig) -> EmbedderProtocol:

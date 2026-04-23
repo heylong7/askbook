@@ -20,10 +20,21 @@ def test_registry_supports_manual_binding() -> None:
     assert reg.get("llm") is sentinel
 
 
-def test_registry_build_llm_not_implemented_yet() -> None:
+def test_build_llm_stub() -> None:
+    from askbook.config.schema import LLMConfig
+    from askbook.providers.stub import StubLLMProvider
+
     reg = ServiceRegistry()
-    with pytest.raises(NotImplementedError, match="Phase 2"):
-        reg.build_llm(config=None)
+    llm = reg.build_llm(LLMConfig(provider="stub"))
+    assert isinstance(llm, StubLLMProvider)
+
+
+def test_build_llm_unknown_raises() -> None:
+    from askbook.config.schema import LLMConfig
+
+    reg = ServiceRegistry()
+    with pytest.raises(ValueError, match="Unknown LLM provider"):
+        reg.build_llm(LLMConfig(provider="bogus"))
 
 
 def test_build_embedder_stub() -> None:
