@@ -124,5 +124,13 @@ class ChromaVectorStore(VectorStoreABC):
         res = col.get(where={"doc_id": doc_id}, include=[])
         return list(res.get("ids", []))
 
+    def list_chunk_ids_by_source_path(
+        self, source_path: str, collection: str
+    ) -> list[str]:
+        """Return all chunk IDs whose metadata.source_path matches *source_path*."""
+        col = self._get_collection(collection)
+        res = col.get(where={"source_path": source_path}, include=[])
+        return list(res.get("ids", []))
+
 
 __all__ = ["ChromaVectorStore"]
