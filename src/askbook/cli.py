@@ -67,13 +67,24 @@ def ingest(
 
 @app.command()
 def query(
-    question: Annotated[str, typer.Argument(help="Natural language question.")] = "",
+    question: Annotated[str, typer.Argument(help="Natural language question.")],
     collection: Annotated[
-        str, typer.Option(help="Chroma collection name.")
+        str, typer.Option(help="Collection namespace (used to find BM25 index).")
     ] = "default",
+    config: Annotated[
+        str, typer.Option("--config", help="Path to YAML config file.")
+    ] = "",
 ) -> None:
-    """Ask the knowledge base a question (Phase 2)."""
-    raise typer.Exit(code=0)
+    """Ask a question against an ingested collection."""
+    from pathlib import Path as _Path
+
+    from askbook.query.cli import run_query
+
+    run_query(
+        question=question,
+        collection=collection,
+        config_path=_Path(config) if config else None,
+    )
 
 
 @app.command(name="eval")
