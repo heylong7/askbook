@@ -55,9 +55,41 @@ def test_rrf_custom_k_changes_ranking_sensitivity() -> None:
     r_k60 = rrf_fusion([bm25, dense], k=60)
     # Both contain same IDs, but verify function runs correctly with custom k
     assert {r.chunk_id for r in r_k1} == {r.chunk_id for r in r_k60} == {"A", "B"}
+    # Verify k actually changes the computed scores
+    a_score_k1 = next(r.score for r in r_k1 if r.chunk_id == "A")
+    a_score_k60 = next(r.score for r in r_k60 if r.chunk_id == "A")
+    assert a_score_k1 != a_score_k60
 
 
 def test_rrf_top_k_limits_output() -> None:
     lst = [_r(str(i), float(i)) for i in range(10)]
     result = rrf_fusion([lst], top_k=3)
     assert len(result) == 3
+
+
+def test_rrf_top_k_zero_returns_empty() -> None:
+    lst = [_r("A", 1.0), _r("B", 0.5)]
+    assert rrf_fusion([lst], top_k=0) == []
+
+
+def test_rrf_fusion_node_merges_context_keys() -> None:
+    from unittest.mock import MagicMock
+
+    from askbook.core.interfaces import TraceSpan
+    from askbook.query.fusion import RRFFusionNode
+
+    mock_span = TraceSpan(name="rrf_fusion")
+    cm = MagicMock()
+    cm.__enter__ = MagicMock(return_value=mock_span)
+    cm.__exit__ = MagicMock(return_value=False)
+    trace = MagicMock()
+    trace.span = MagicMock(return_value=cm)
+
+    node = RRFFusionNode(k=60, top_k=2, trace_writer=trace)
+    bm25 = [_r("A", 1.0), _r("B", 0.5)]
+    dense = [_r("B", 1.0, "dense"), _r("C", 0.3, "dense")]
+    ctx = {"query": "q", "bm25_results": bm25, "dense_results": dense}
+    out = node(ctx)  # type: ignore[arg-type]
+    assert "retrieval_results" in out
+    assert len(out["retrieval_results"]) == 2
+    assert all(r.retrieval_method == "rrf" for r in out["retrieval_results"])

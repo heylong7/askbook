@@ -39,10 +39,12 @@ def rrf_fusion(
                 retrieval_method="rrf",
             )
         )
-    return out[:top_k] if top_k else out
+    return out[:top_k] if top_k is not None else out
 
 
 class RRFFusionNode(BasePipelineNode):
+    """Fuses bm25 and dense retrieval results using Reciprocal Rank Fusion."""
+
     def __init__(
         self, *, k: int, top_k: int, trace_writer: TraceWriterProtocol
     ) -> None:
