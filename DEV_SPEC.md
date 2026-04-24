@@ -72,6 +72,8 @@
 | 2.1 | 2026-04-21 | 新增附录 E（8-阶段执行索引）；收紧 Ch 19 `RetrievalResult` 字段为 Harness 30.1.1 白名单版本（`snippet` 替代 `chunk`，禁止 `raw_text`/`full_content`/`page_content`） |
 | 2.2 | 2026-04-22 | Phase 0（Foundations）完成：骨架 + 抽象层 + CI 流水线就位；附录 E 阶段执行表更新进度状态 |
 | 2.3 | 2026-04-22 | Phase 1 执行进行中（Task 1.0–1.8 完成）：依赖安装 / IngestionResult / NullTraceWriter / 文档加载 / 文本分块 / Embedder / BM25 / ChromaVectorStore / 去重 / 7 节点已全部落地；Task 1.9–1.11（Pipeline 编排 / Registry 工厂 / CLI）待续；记录平台适配决策（chromadb 1.x API / langchain_text_splitters 替换） |
+| 2.4 | 2026-04-23 | Phase 1 全部完成（Task 1.9–1.11 ✅）；Phase 2 Query MVP 启动：Task 2.1（Providers 基础设施）已完成——httpx/jinja2/respx 依赖、BaseLLMProvider/RetryMixin/TokenCountingMixin、OllamaQwenProvider、StubLLMProvider、registry.build_llm() 全部落地，22 个单元测试全绿；Task 2.2–2.9（RRF / HybridRetriever / Reranker / Rewriter / Synthesizer / Pipeline / CLI / 质量闸）待续 |
+| 2.5 | 2026-04-24 | Phase 2（Query MVP）全部完成：RRF 融合 / HybridRetriever（BM25+Dense 并行）/ StubReranker+BGE-v2-m3（懒加载）/ CrossEncoderRerankNode+LLMFineRerankNode / QueryRewriterNode+HyDENode（passthrough）/ AnswerSynthesizerNode（jinja2 prompt）/ QueryPipeline 编排器 / `askbook query` CLI 全部落地；150 个测试全绿（83% 覆盖率）；Harness 30.1.1 端到端验证（无 raw_text）+ 30.1.iii 节点幂等断言（7 项）均通过 |
 
 ---
 
@@ -2242,7 +2244,7 @@ class QuerySpan(BaseModel):
 - ✅ DEV_SPEC v2.2 版本历史更新
 - ✅ CLAUDE.md 项目级编码指南
 
-## E.1b Phase 1 执行进度（2026-04-22，已完成）
+## E.1b Phase 1 执行进度（2026-04-23，已完成）
 
 ### 执行概况
 
@@ -2408,6 +2410,42 @@ Phase 1 目标：实现 `askbook ingest <path>` 端到端可用，7 节点 Inges
 
 ---
 
+## E.1c Phase 2 执行进度（2026-04-24，✅ 完成）
+
+**Phase 2 目标：** 落地 `askbook query` 主链路——Ollama Qwen Provider + BM25/Dense 并行检索 + RRF 融合 + Cross-Encoder 精排 + LLM 合成答案。
+
+**详细计划：** `E:\ClaudeCode\askbook\docs\superpowers\plans\2026-04-23-phase2-query-mvp.md`（9 Tasks）
+
+**执行结果：** 150 个测试全绿（83% 覆盖率）；`askbook query` CLI 可用；Harness 30.1.1 + 30.1.iii 验证通过。
+
+---
+
+### ✅ 全部任务已完成
+
+| Task | 内容 | 状态 |
+|------|------|------|
+| 2.1 | Providers 基础设施：httpx/jinja2/respx 依赖；BaseLLMProvider/RetryMixin；OllamaQwenProvider；StubLLMProvider；registry.build_llm() | ✅ commit `fdab811` |
+| 2.2 | RRF 融合：`rrf_fusion()` 纯函数 + `RRFFusionNode`；扩展 `PipelineContext`（bm25_results/dense_results/rewritten_query/pipeline_trace_id） | ✅ commit `38b8c16` |
+| 2.3 | HybridRetriever：`BM25PersistentIndex.search_as_results()`；`HybridRetriever.retrieve()` asyncio.gather 并行；`HybridRetrieverNode` | ✅ commit `10dd96b` |
+| 2.4 | Reranker 层：`StubReranker` / `BGERerankerV2M3`（懒加载）/ `CrossEncoderRerankNode` / `LLMFineRerankNode`（passthrough）；`registry.build_reranker()` | ✅ commit `4ac3bc6` |
+| 2.5 | Rewriter/HyDE 占位：`QueryRewriterNode`（passthrough + optional LLM rewrite）/ `HyDENode`（disabled passthrough） | ✅ commit `6cd356a` |
+| 2.6 | Answer Synthesizer：`prompts/synthesis.jinja` 模板 + `AnswerSynthesizerNode`（空结果走 FALLBACK_TEXT） | ✅ commit `43b609e` |
+| 2.7 | QueryPipeline 编排器：7 节点串联；幂等性测试（Harness 30.1.iii）；端到端集成测试 | ✅ commit `7797686` |
+| 2.8 | CLI 接线：`query/cli.py run_query()`；修改 `cli.py query` 命令；集成测试 | ✅ commit `096bba9` |
+| 2.9 | 全量质量闸：ruff / mypy / pytest 150 绿 / cov 83%；Harness 端到端断言；DEV_SPEC v2.5 更新 | ✅ 完成 |
+
+---
+
+### ⚠️ 遇到的问题与解决方案
+
+| 问题 | 状态 | 解决方案 |
+|------|------|---------|
+| DEV_SPEC RRF 伪代码用 `r.chunk.chunk_id` 但 `RetrievalResult` 直接有 `.chunk_id` | ✅ 已在计划中修正 | 计划全程使用 `r.chunk_id` |
+| `build_llm(config: Any)` 类型不够严格（MEDIUM 质量问题） | ⚠️ 未解决（低优先） | Phase 2.9 质量闸时可改为 `LLMConfig` 类型；当前功能不受影响 |
+| `OllamaQwenProvider.complete()` 内用 `asyncio.run()`，在已有事件循环时会报错 | ⚠️ 未解决（低优先） | Phase 4 全面 async 化时统一解决；当前 CLI 场景无事件循环 |
+
+---
+
 ## E.2 验收标准模板
 
 所有子任务统一三段式验收：
@@ -2457,8 +2495,8 @@ Phase 3 与 Phase 4 可在 Phase 2 完成后并行；其余严格顺序。
 |---|---|---|
 | 总览（8 阶段 + AC 模板） | `C:\Users\heylong\.claude\plans\dev-spec-tidy-journal.md` | ✅ 已定稿（v2.1） |
 | Phase 0 — Foundations | `C:\Users\heylong\.claude\plans\phase0-foundations-detail.md` | ✅ 完成（2026-04-22） |
-| Phase 1 — Ingestion MVP | `C:\Users\heylong\.claude\plans\phase1-ingestion-detail.md` | 🔄 执行中（Task 1.0–1.8 ✅，Task 1.9–1.11 待续） |
-| Phase 2 — Query MVP | `C:\Users\heylong\.claude\plans\phase2-query-detail.md` | 🟡 待生成 |
+| Phase 1 — Ingestion MVP | `C:\Users\heylong\.claude\plans\phase1-ingestion-detail.md` | ✅ 完成（2026-04-23，Task 1.0–1.11 全部 ✅） |
+| Phase 2 — Query MVP | `E:\ClaudeCode\askbook\docs\superpowers\plans\2026-04-23-phase2-query-mvp.md` | ✅ 完成（2026-04-24，150 tests，83% cov） |
 | Phase 3 — MCP Server | `C:\Users\heylong\.claude\plans\phase3-mcp-detail.md` | 🟡 待生成 |
 | Phase 4 — Trace + Dashboard | `C:\Users\heylong\.claude\plans\phase4-observability-detail.md` | 🟡 待生成 |
 | Phase 5 — Eval v0.1 | `C:\Users\heylong\.claude\plans\phase5-eval-detail.md` | 🟡 待生成 |
