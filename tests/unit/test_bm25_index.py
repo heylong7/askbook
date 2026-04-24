@@ -44,3 +44,19 @@ def test_bm25_search_empty_index_returns_empty_list(tmp_path: Path) -> None:
 
     idx = BM25PersistentIndex(path=tmp_path / "bm25.pkl")
     assert idx.search("anything", top_k=5) == []
+
+
+def test_search_as_results_returns_bm25_method_and_snippet_cap() -> None:
+    import tempfile
+
+    from askbook.vectorstores.bm25_index import BM25PersistentIndex
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        idx = BM25PersistentIndex(path=Path(tmpdir) / "idx.pkl")
+        idx.add([("cid1", "hello world " * 20)])
+        results = idx.search_as_results(
+            "hello", top_k=5, snippet_lookup=lambda _: "X" * 500
+        )
+        assert len(results) == 1
+        assert results[0].retrieval_method == "bm25"
+        assert len(results[0].snippet) <= 200

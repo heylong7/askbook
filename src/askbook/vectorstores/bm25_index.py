@@ -4,9 +4,14 @@ from __future__ import annotations
 
 import pickle
 import re
+from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from rank_bm25 import BM25Plus
+
+if TYPE_CHECKING:
+    from askbook.core.models import RetrievalResult
 
 _TOKEN_RE = re.compile(r"[A-Za-z0-9_]+|[一-鿿]")
 
@@ -67,6 +72,28 @@ class BM25PersistentIndex:
             reverse=True,
         )
         return [(cid, float(s)) for cid, s in paired[:top_k] if s > 0.0]
+
+    def search_as_results(
+        self,
+        query: str,
+        top_k: int,
+        *,
+        snippet_lookup: Callable[[str], str] | None = None,
+    ) -> list[RetrievalResult]:
+        """Return BM25 hits wrapped as RetrievalResult (snippet ≤200 chars)."""
+        from askbook.core.models import RetrievalResult
+
+        hits = self.search(query, top_k=top_k)
+        return [
+            RetrievalResult(
+                chunk_id=cid,
+                score=float(score),
+                snippet=(snippet_lookup(cid) if snippet_lookup else "")[:200],
+                metadata={},
+                retrieval_method="bm25",
+            )
+            for cid, score in hits
+        ]
 
     def save(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
