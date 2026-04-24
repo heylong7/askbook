@@ -14,8 +14,12 @@ from askbook.core.interfaces import (
 from askbook.core.models import RetrievalResult
 from askbook.vectorstores.bm25_index import BM25PersistentIndex
 
+_CANDIDATE_MULTIPLIER: int = 2
+
 
 class HybridRetriever:
+    """Parallel BM25 + dense retriever."""
+
     def __init__(
         self,
         *,
@@ -65,7 +69,7 @@ class HybridRetrieverNode(BasePipelineNode):
     def run(self, context: PipelineContext) -> PipelineContext:
         query = context.get("rewritten_query") or context["query"]
         collection = context["collection"]
-        candidate_k = self._top_k * 2
+        candidate_k = self._top_k * _CANDIDATE_MULTIPLIER
         bm25_res, dense_res = asyncio.run(
             self._retriever.retrieve(query, collection, candidate_k)
         )
