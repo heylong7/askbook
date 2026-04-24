@@ -15,9 +15,16 @@ class BGERerankerV2M3:
         model: str = "BAAI/bge-reranker-v2-m3",
         use_fp16: bool = True,
     ) -> None:
-        from FlagEmbedding import FlagReranker  # lazy import
+        self._model_name = model
+        self._use_fp16 = use_fp16
+        self._reranker: object | None = None  # lazy
 
-        self._reranker = FlagReranker(model, use_fp16=use_fp16)
+    def _get_reranker(self) -> object:
+        if self._reranker is None:
+            from FlagEmbedding import FlagReranker  # lazy import
+
+            self._reranker = FlagReranker(self._model_name, use_fp16=self._use_fp16)
+        return self._reranker
 
     def rerank(
         self,
@@ -27,8 +34,9 @@ class BGERerankerV2M3:
     ) -> list[RetrievalResult]:
         if not results:
             return []
+        reranker = self._get_reranker()
         pairs = [(query, r.snippet) for r in results]
-        scores = self._reranker.compute_score(pairs, normalize=True)
+        scores = reranker.compute_score(pairs, normalize=True)  # type: ignore[attr-defined]
         scored = sorted(
             zip(results, scores, strict=True),
             key=lambda rs: float(rs[1]),

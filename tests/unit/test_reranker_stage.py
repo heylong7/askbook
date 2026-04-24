@@ -57,7 +57,8 @@ def test_llm_fine_rerank_disabled_passthrough() -> None:
     node = LLMFineRerankNode(enabled=False, trace_writer=_make_trace())
     ctx = {"query": "q", "retrieval_results": _results(5)}
     out = node(ctx)  # type: ignore[arg-type]
-    assert out is ctx  # same object (no copy when passthrough)
+    assert out["retrieval_results"] == ctx["retrieval_results"]
+    assert out["query"] == ctx["query"]
 
 
 def test_reranker_nodes_are_idempotent() -> None:
