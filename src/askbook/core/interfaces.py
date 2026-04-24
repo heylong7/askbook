@@ -169,6 +169,10 @@ class PipelineContext(TypedDict, total=False):
     retrieval_results: list[RetrievalResult]
     answer: Answer
     ingestion_result: IngestionResult
+    bm25_results: list[RetrievalResult]
+    dense_results: list[RetrievalResult]
+    rewritten_query: str
+    pipeline_trace_id: str
 
 
 # ====================================================================
