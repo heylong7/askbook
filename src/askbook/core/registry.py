@@ -89,5 +89,23 @@ class ServiceRegistry:
             chunk_overlap=config.chunk_overlap,
         )
 
+    def build_reranker(self, config: Any) -> Any:
+        from askbook.config.schema import QueryConfig
+
+        if not isinstance(config, QueryConfig):
+            raise TypeError(f"Expected QueryConfig, got {type(config)}")
+        provider = getattr(config, "reranker_provider", "stub")
+        if provider == "stub":
+            from askbook.rerankers.stub import StubReranker
+
+            return StubReranker()
+        if provider in ("bge-v2-m3", "bge_reranker_v2_m3"):
+            from askbook.rerankers.bge_reranker_v2_m3 import BGERerankerV2M3
+
+            return BGERerankerV2M3()
+        raise ValueError(
+            f"Unknown reranker {provider!r}. Supported: 'stub', 'bge-v2-m3'."
+        )
+
 
 __all__ = ["ServiceRegistry"]

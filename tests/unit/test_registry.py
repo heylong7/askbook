@@ -82,3 +82,20 @@ def test_build_splitter_returns_correct_config() -> None:
     assert isinstance(splitter, RecursiveCharacterTextSplitter)
     assert splitter.chunk_size == 400
     assert splitter.chunk_overlap == 50
+
+
+def test_build_reranker_stub() -> None:
+    from askbook.config.schema import QueryConfig
+    from askbook.rerankers.stub import StubReranker
+
+    reg = ServiceRegistry()
+    reranker = reg.build_reranker(QueryConfig())
+    assert isinstance(reranker, StubReranker)
+
+
+def test_build_reranker_wrong_type_raises() -> None:
+    from askbook.config.schema import LLMConfig
+
+    reg = ServiceRegistry()
+    with pytest.raises(TypeError):
+        reg.build_reranker(LLMConfig())
