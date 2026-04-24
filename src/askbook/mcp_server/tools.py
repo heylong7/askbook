@@ -12,6 +12,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from pydantic import BaseModel
+
 from askbook.core.interfaces import EmbedderProtocol, VectorStoreABC
 from askbook.mcp_server.contracts import (
     AskData,
@@ -32,7 +34,7 @@ _MAX_FIRST_SNIPPETS = 3
 _SNIPPET_MAX_LEN = 200
 
 
-@dataclass
+@dataclass(frozen=True)
 class ServerDeps:
     """Single-startup-built, shared by all handlers.
 
@@ -214,7 +216,7 @@ def handle_get_document_summary(
 # ---------------------------------------------------------------------------
 
 TOOL_REGISTRY: dict[
-    str, tuple[type[Any], Callable[[Any, ServerDeps], ToolResponse]]
+    str, tuple[type[BaseModel], Callable[[Any, ServerDeps], ToolResponse]]
 ] = {
     "search": (SearchInput, handle_search),
     "ask": (AskInput, handle_ask),

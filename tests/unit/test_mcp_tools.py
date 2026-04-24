@@ -13,6 +13,20 @@ from unittest.mock import MagicMock
 from askbook.core.interfaces import TraceSpan
 from askbook.core.models import Chunk
 from askbook.embeddings.stub import StubEmbedder
+from askbook.mcp_server.contracts import (
+    AskInput,
+    GetDocumentSummaryInput,
+    ListCollectionsInput,
+    SearchInput,
+)
+from askbook.mcp_server.tools import (
+    TOOL_REGISTRY,
+    ServerDeps,
+    handle_ask,
+    handle_get_document_summary,
+    handle_list_collections,
+    handle_search,
+)
 from askbook.providers.stub import StubLLMProvider
 from askbook.query.fusion import RRFFusionNode
 from askbook.query.hyde import HyDENode
@@ -96,11 +110,8 @@ def _build_deps(
     seeded: bool = True,
     llm_response: str = "This answers the question based on [c0]",
     namespace: str = "demo",
-) -> tuple[Any, StubEmbedder, ChromaVectorStore, str]:
+) -> tuple[ServerDeps, StubEmbedder, ChromaVectorStore, str]:
     """Returns (ServerDeps, embedder, store, collection_name)."""
-    from askbook.mcp_server.tools import ServerDeps
-    from askbook.query.synthesizer import AnswerSynthesizerNode
-
     embedder = StubEmbedder()
     store = ChromaVectorStore(path=str(tmp_path / "chroma"))
     collection = store.make_collection_name(
@@ -126,9 +137,6 @@ def _build_deps(
 
 
 def test_search_handler_returns_snippets_with_source_ids(tmp_path: Path) -> None:
-    from askbook.mcp_server.contracts import SearchInput
-    from askbook.mcp_server.tools import handle_search
-
     deps, _, _, _ = _build_deps(tmp_path)
     resp = handle_search(
         SearchInput(query="alpha", collection="demo", top_k=2), deps=deps
@@ -141,9 +149,6 @@ def test_search_handler_returns_snippets_with_source_ids(tmp_path: Path) -> None
 
 
 def test_search_handler_warning_on_empty_collection(tmp_path: Path) -> None:
-    from askbook.mcp_server.contracts import SearchInput
-    from askbook.mcp_server.tools import handle_search
-
     # Empty store — no chunks seeded
     deps, _, _, _ = _build_deps(tmp_path, seeded=False)
     resp = handle_search(
@@ -160,9 +165,6 @@ def test_search_handler_warning_on_empty_collection(tmp_path: Path) -> None:
 
 
 def test_ask_handler_returns_answer_with_citations(tmp_path: Path) -> None:
-    from askbook.mcp_server.contracts import AskInput
-    from askbook.mcp_server.tools import handle_ask
-
     deps, _, _, _ = _build_deps(tmp_path, llm_response="Answer with citations [c0]")
     resp = handle_ask(AskInput(question="what is alpha?", collection="demo"), deps=deps)
 
@@ -172,9 +174,6 @@ def test_ask_handler_returns_answer_with_citations(tmp_path: Path) -> None:
 
 
 def test_ask_handler_warning_on_fallback_answer(tmp_path: Path) -> None:
-    from askbook.mcp_server.contracts import AskInput
-    from askbook.mcp_server.tools import handle_ask
-
     # Empty retrieval → QueryPipeline returns FALLBACK_TEXT → handler returns warning
     deps, _, _, _ = _build_deps(tmp_path, seeded=False)
     resp = handle_ask(AskInput(question="what is alpha?", collection="demo"), deps=deps)
@@ -189,9 +188,6 @@ def test_ask_handler_warning_on_fallback_answer(tmp_path: Path) -> None:
 
 
 def test_list_collections_handler_returns_descriptors(tmp_path: Path) -> None:
-    from askbook.mcp_server.contracts import ListCollectionsInput
-    from askbook.mcp_server.tools import handle_list_collections
-
     deps, _, _, collection = _build_deps(tmp_path)
     resp = handle_list_collections(ListCollectionsInput(), deps=deps)
 
@@ -203,9 +199,6 @@ def test_list_collections_handler_returns_descriptors(tmp_path: Path) -> None:
 
 
 def test_list_collections_handler_warning_when_empty(tmp_path: Path) -> None:
-    from askbook.mcp_server.contracts import ListCollectionsInput
-    from askbook.mcp_server.tools import handle_list_collections
-
     # Empty store — no upsert ever called
     deps, _, _, _ = _build_deps(tmp_path, seeded=False)
     resp = handle_list_collections(ListCollectionsInput(), deps=deps)
@@ -220,9 +213,6 @@ def test_list_collections_handler_warning_when_empty(tmp_path: Path) -> None:
 
 
 def test_get_document_summary_returns_first_snippets(tmp_path: Path) -> None:
-    from askbook.mcp_server.contracts import GetDocumentSummaryInput
-    from askbook.mcp_server.tools import handle_get_document_summary
-
     # Seed doc_A with 5 chunks
     embedder = StubEmbedder()
     store = ChromaVectorStore(path=str(tmp_path / "chroma"))
@@ -238,9 +228,6 @@ def test_get_document_summary_returns_first_snippets(tmp_path: Path) -> None:
     )
 
     pipeline = _build_pipeline(store, embedder, tmp_path)
-    from askbook.mcp_server.tools import ServerDeps
-    from askbook.query.synthesizer import AnswerSynthesizerNode
-
     deps = ServerDeps(
         pipeline=pipeline,
         store=store,
@@ -260,9 +247,6 @@ def test_get_document_summary_returns_first_snippets(tmp_path: Path) -> None:
 
 
 def test_get_document_summary_warning_when_doc_missing(tmp_path: Path) -> None:
-    from askbook.mcp_server.contracts import GetDocumentSummaryInput
-    from askbook.mcp_server.tools import handle_get_document_summary
-
     deps, _, _, _ = _build_deps(tmp_path)
     resp = handle_get_document_summary(
         GetDocumentSummaryInput(doc_id="nonexistent_doc_xyz", collection="demo"),
@@ -279,9 +263,6 @@ def test_get_document_summary_warning_when_doc_missing(tmp_path: Path) -> None:
 
 
 def test_handlers_never_emit_raw_text_key_in_hits(tmp_path: Path) -> None:
-    from askbook.mcp_server.contracts import SearchInput
-    from askbook.mcp_server.tools import handle_search
-
     deps, _, _, _ = _build_deps(tmp_path)
     resp = handle_search(
         SearchInput(query="alpha", collection="demo", top_k=5), deps=deps
@@ -299,8 +280,6 @@ def test_handlers_never_emit_raw_text_key_in_hits(tmp_path: Path) -> None:
 
 
 def test_tool_registry_size_is_four_phase3_cap() -> None:
-    from askbook.mcp_server.tools import TOOL_REGISTRY
-
     assert set(TOOL_REGISTRY) == {
         "search",
         "ask",
