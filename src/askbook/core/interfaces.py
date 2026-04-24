@@ -140,6 +140,15 @@ class VectorStoreABC(ABC):
     @abstractmethod
     def get_collection_stats(self, collection: str) -> CollectionStats: ...
 
+    @abstractmethod
+    def get_document_chunks(
+        self,
+        doc_id: str,
+        collection: str,
+    ) -> list[Chunk]:
+        """Return all chunks belonging to doc_id in collection (may be empty)."""
+        ...
+
 
 # ====================================================================
 # Pipeline primitives

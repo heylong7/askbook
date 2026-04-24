@@ -119,6 +119,25 @@ class ChromaVectorStore(VectorStoreABC):
             last_updated=_dt.datetime.now(_dt.UTC).isoformat(),
         )
 
+    def get_document_chunks(self, doc_id: str, collection: str) -> list[Chunk]:
+        try:
+            col = self._client.get_collection(collection)
+        except Exception:
+            return []
+        res = col.get(where={"doc_id": doc_id}, include=["documents", "metadatas"])
+        ids: list[str] = res.get("ids", []) or []
+        docs: list[str] = res.get("documents", []) or []
+        metas: list[dict[str, Any]] = res.get("metadatas", []) or []
+        return [
+            Chunk(
+                chunk_id=str(cid),
+                doc_id=doc_id,
+                content=str(doc or ""),
+                metadata=dict(meta or {}),
+            )
+            for cid, doc, meta in zip(ids, docs, metas, strict=False)
+        ]
+
     def list_chunk_ids_by_doc(self, doc_id: str, collection: str) -> list[str]:
         col = self._get_collection(collection)
         res = col.get(where={"doc_id": doc_id}, include=[])
