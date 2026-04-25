@@ -74,6 +74,7 @@
 | 2.3 | 2026-04-22 | Phase 1 执行进行中（Task 1.0–1.8 完成）：依赖安装 / IngestionResult / NullTraceWriter / 文档加载 / 文本分块 / Embedder / BM25 / ChromaVectorStore / 去重 / 7 节点已全部落地；Task 1.9–1.11（Pipeline 编排 / Registry 工厂 / CLI）待续；记录平台适配决策（chromadb 1.x API / langchain_text_splitters 替换） |
 | 2.4 | 2026-04-23 | Phase 1 全部完成（Task 1.9–1.11 ✅）；Phase 2 Query MVP 启动：Task 2.1（Providers 基础设施）已完成——httpx/jinja2/respx 依赖、BaseLLMProvider/RetryMixin/TokenCountingMixin、OllamaQwenProvider、StubLLMProvider、registry.build_llm() 全部落地，22 个单元测试全绿；Task 2.2–2.9（RRF / HybridRetriever / Reranker / Rewriter / Synthesizer / Pipeline / CLI / 质量闸）待续 |
 | 2.5 | 2026-04-24 | Phase 2（Query MVP）全部完成：RRF 融合 / HybridRetriever（BM25+Dense 并行）/ StubReranker+BGE-v2-m3（懒加载）/ CrossEncoderRerankNode+LLMFineRerankNode / QueryRewriterNode+HyDENode（passthrough）/ AnswerSynthesizerNode（jinja2 prompt）/ QueryPipeline 编排器 / `askbook query` CLI 全部落地；150 个测试全绿（83% 覆盖率）；Harness 30.1.1 端到端验证（无 raw_text）+ 30.1.iii 节点幂等断言（7 项）均通过 |
+| 2.6 | 2026-04-25 | Phase 3（MCP Server）完成：4 核心工具 search/ask/list_collections/get_document_summary + ToolResponse 封套（Harness 30.1.2 source_ids 非空 validator）+ stdio 模式 + Claude Desktop 接入样本；Harness 工具数锁定断言上线；BM25 多 collection lazy-load 推迟到 Phase 6 |
 
 ---
 
@@ -2497,7 +2498,7 @@ Phase 3 与 Phase 4 可在 Phase 2 完成后并行；其余严格顺序。
 | Phase 0 — Foundations | `C:\Users\heylong\.claude\plans\phase0-foundations-detail.md` | ✅ 完成（2026-04-22） |
 | Phase 1 — Ingestion MVP | `C:\Users\heylong\.claude\plans\phase1-ingestion-detail.md` | ✅ 完成（2026-04-23，Task 1.0–1.11 全部 ✅） |
 | Phase 2 — Query MVP | `E:\ClaudeCode\askbook\docs\superpowers\plans\2026-04-23-phase2-query-mvp.md` | ✅ 完成（2026-04-24，150 tests，83% cov） |
-| Phase 3 — MCP Server | `C:\Users\heylong\.claude\plans\phase3-mcp-detail.md` | 🟡 待生成 |
+| Phase 3 — MCP Server | `C:\Users\heylong\.claude\plans\phase3-mcp-detail.md` | ✅ 完成（2026-04-25，4 tools，Harness 30.1.2 ✅） |
 | Phase 4 — Trace + Dashboard | `C:\Users\heylong\.claude\plans\phase4-observability-detail.md` | 🟡 待生成 |
 | Phase 5 — Eval v0.1 | `C:\Users\heylong\.claude\plans\phase5-eval-detail.md` | 🟡 待生成 |
 | Phase 6 — v0.5 扩展 | `C:\Users\heylong\.claude\plans\phase6-v05-detail.md` | 🟡 待生成 |

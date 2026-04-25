@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "askbook": {
+      "command": "uv",
+      "args": ["run", "askbook", "serve", "--collection", "demo"],
+      "env": {
+        "ASKBOOK_LLM__PROVIDER": "ollama",
+        "ASKBOOK_EMBEDDING__PROVIDER": "bge-m3"
+      }
+    }
+  }
+}

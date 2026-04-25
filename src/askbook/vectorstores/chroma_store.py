@@ -127,7 +127,10 @@ class ChromaVectorStore(VectorStoreABC):
         res = col.get(where={"doc_id": doc_id}, include=["documents", "metadatas"])
         ids: list[str] = res.get("ids", []) or []
         docs: list[str] = res.get("documents", []) or []
-        metas: list[dict[str, Any]] = res.get("metadatas", []) or []
+        raw_metas = res.get("metadatas", []) or []
+        metas: list[dict[str, Any]] = [
+            dict(m) if m is not None else {} for m in raw_metas
+        ]
         return [
             Chunk(
                 chunk_id=str(cid),

@@ -13,3 +13,9 @@ askbook --help
 ```
 
 详细开发规范见 `DEV_SPEC.md`。
+
+## MCP 接入 Claude Desktop
+
+1. 先通过 `askbook ingest` 建立至少一个 collection。
+2. 将 `examples/claude_desktop_mcp.json` 内容合并进 Claude Desktop 配置。
+3. 重启 Claude Desktop，在对话中调用 `search` / `ask` / `list_collections` / `get_document_summary`。
