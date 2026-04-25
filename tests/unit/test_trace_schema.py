@@ -13,72 +13,22 @@ from askbook.observability.schema import (
 )
 
 
-def test_trace_event_required_fields() -> None:
-    """TraceEvent requires trace_id, span_id, event_type, node_name, timestamp_utc."""
-    now = datetime.datetime.now(tz=datetime.UTC)
-
-    # Valid construction succeeds
-    event = TraceEvent(
-        trace_id="t1",
-        span_id="s1",
-        event_type="span_start",
-        node_name="test_node",
-        timestamp_utc=now,
-    )
-    assert event.trace_id == "t1"
-    assert event.span_id == "s1"
-    assert event.event_type == "span_start"
-    assert event.node_name == "test_node"
-
-    # Missing trace_id → ValidationError
-    with pytest.raises(ValidationError) as exc_info:
-        TraceEvent(  # type: ignore[call-arg]
-            span_id="s1",
-            event_type="span_start",
-            node_name="test_node",
-            timestamp_utc=now,
-        )
-    assert "trace_id" in str(exc_info.value)
-
-    # Missing span_id → ValidationError
-    with pytest.raises(ValidationError) as exc_info:
-        TraceEvent(  # type: ignore[call-arg]
-            trace_id="t1",
-            event_type="span_start",
-            node_name="test_node",
-            timestamp_utc=now,
-        )
-    assert "span_id" in str(exc_info.value)
-
-    # Missing event_type → ValidationError
-    with pytest.raises(ValidationError) as exc_info:
-        TraceEvent(  # type: ignore[call-arg]
-            trace_id="t1",
-            span_id="s1",
-            node_name="test_node",
-            timestamp_utc=now,
-        )
-    assert "event_type" in str(exc_info.value)
-
-    # Missing node_name → ValidationError
-    with pytest.raises(ValidationError) as exc_info:
-        TraceEvent(  # type: ignore[call-arg]
-            trace_id="t1",
-            span_id="s1",
-            event_type="span_start",
-            timestamp_utc=now,
-        )
-    assert "node_name" in str(exc_info.value)
-
-    # Missing timestamp_utc → ValidationError
-    with pytest.raises(ValidationError) as exc_info:
-        TraceEvent(  # type: ignore[call-arg]
-            trace_id="t1",
-            span_id="s1",
-            event_type="span_start",
-            node_name="test_node",
-        )
-    assert "timestamp_utc" in str(exc_info.value)
+@pytest.mark.parametrize(
+    "missing_field",
+    ["trace_id", "span_id", "event_type", "node_name", "timestamp_utc"],
+)
+def test_trace_event_rejects_missing_required_field(missing_field: str) -> None:
+    """TraceEvent raises ValidationError when any required field is absent."""
+    valid: dict[str, object] = {
+        "trace_id": "t1",
+        "span_id": "s1",
+        "event_type": "span_start",
+        "node_name": "mynode",
+        "timestamp_utc": datetime.datetime.now(tz=datetime.UTC),
+    }
+    invalid = {k: v for k, v in valid.items() if k != missing_field}
+    with pytest.raises(ValidationError):
+        TraceEvent(**invalid)  # type: ignore[arg-type]
 
 
 def test_query_span_requires_original_query_field() -> None:
@@ -125,6 +75,34 @@ def test_query_span_rejects_raw_text_in_tags() -> None:
     # Safe keys are accepted
     event = TraceEvent(**base_kwargs, tags={"chunk_id": "abc", "score": 0.9})  # type: ignore[arg-type]
     assert event.tags["chunk_id"] == "abc"
+
+
+def test_query_span_rejects_multiple_forbidden_keys_simultaneously() -> None:
+    """tags with multiple forbidden keys at once raises ValidationError."""
+    now = datetime.datetime.now(tz=datetime.UTC)
+    base_kwargs = {
+        "trace_id": "t1",
+        "span_id": "s1",
+        "event_type": "span_start",
+        "node_name": "test_node",
+        "timestamp_utc": now,
+    }
+    with pytest.raises(ValidationError):
+        TraceEvent(**base_kwargs, tags={"raw_text": "x", "page_content": "y"})  # type: ignore[arg-type]
+
+
+def test_query_span_rejects_mixed_forbidden_and_safe_keys() -> None:
+    """tags with a forbidden key alongside safe keys still raises ValidationError."""
+    now = datetime.datetime.now(tz=datetime.UTC)
+    base_kwargs = {
+        "trace_id": "t1",
+        "span_id": "s1",
+        "event_type": "span_start",
+        "node_name": "test_node",
+        "timestamp_utc": now,
+    }
+    with pytest.raises(ValidationError):
+        TraceEvent(**base_kwargs, tags={"chunk_id": "abc", "raw_text": "secret"})  # type: ignore[arg-type]
 
 
 def test_ingestion_span_aggregates_counts() -> None:

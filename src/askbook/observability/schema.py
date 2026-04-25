@@ -43,7 +43,8 @@ class QuerySpan(BaseModel):
     """
 
     trace_id: str
-    original_query: str  # required — no default (Harness 30.1.3)
+    # required, non-empty (Harness 30.1.3)
+    original_query: str = Field(..., min_length=1)
     rewritten_query: str | None = None
     collection: str | None = None
     retrieval_count: int = 0
@@ -55,9 +56,9 @@ class IngestionSpan(BaseModel):
 
     trace_id: str
     source_path: str
-    doc_count: int = 0
-    chunk_count: int = 0
-    embedding_tokens: int = 0
+    doc_count: int = Field(default=0, ge=0)
+    chunk_count: int = Field(default=0, ge=0)
+    embedding_tokens: int = Field(default=0, ge=0)
 
 
 class MCPToolSpan(BaseModel):
