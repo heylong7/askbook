@@ -84,14 +84,25 @@ def test_nested_env_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_observability_config_defaults() -> None:
-    # from askbook.config.schema import ObservabilityConfig
-    # cfg = ObservabilityConfig()
-    # assert cfg.enabled is True
-    # assert cfg.retention_days == 7
-    # assert cfg.dashboard_port == 8501
-    ...
+    from askbook.config.schema import ObservabilityConfig
+
+    cfg = ObservabilityConfig()
+    assert cfg.enabled is True
+    assert cfg.retention_days == 7
+    assert cfg.dashboard_port == 8501
 
 
 def test_observability_config_retention_days_must_be_positive() -> None:
-    # ObservabilityConfig(retention_days=0) -> ValidationError
-    ...
+    from askbook.config.schema import ObservabilityConfig
+
+    with pytest.raises(ValidationError):
+        ObservabilityConfig(retention_days=0)
+
+
+def test_observability_config_dashboard_port_bounds() -> None:
+    from askbook.config.schema import ObservabilityConfig
+
+    with pytest.raises(ValidationError):
+        ObservabilityConfig(dashboard_port=0)
+    with pytest.raises(ValidationError):
+        ObservabilityConfig(dashboard_port=65536)

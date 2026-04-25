@@ -61,7 +61,7 @@ class ObservabilityConfig(BaseModel):
     pii_redaction: bool = True
     enabled: bool = True
     retention_days: int = Field(default=7, ge=1)
-    dashboard_port: int = Field(default=8501, ge=1)
+    dashboard_port: int = Field(default=8501, ge=1024, le=65535)
 
 
 __all__ = [
