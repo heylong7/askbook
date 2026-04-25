@@ -1484,7 +1484,11 @@ def rrf_fusion(
   "mcpServers": {
     "askbook": {
       "command": "uv",
-      "args": ["run", "askbook", "serve", "--config", "~/.askbook/config.yaml"]
+      "args": ["run", "askbook", "serve", "--collection", "demo"],
+      "env": {
+        "ASKBOOK_LLM__PROVIDER": "ollama",
+        "ASKBOOK_EMBEDDING__PROVIDER": "bge-m3"
+      }
     }
   }
 }
@@ -2444,6 +2448,39 @@ Phase 1 目标：实现 `askbook ingest <path>` 端到端可用，7 节点 Inges
 | DEV_SPEC RRF 伪代码用 `r.chunk.chunk_id` 但 `RetrievalResult` 直接有 `.chunk_id` | ✅ 已在计划中修正 | 计划全程使用 `r.chunk_id` |
 | `build_llm(config: Any)` 类型不够严格（MEDIUM 质量问题） | ⚠️ 未解决（低优先） | Phase 2.9 质量闸时可改为 `LLMConfig` 类型；当前功能不受影响 |
 | `OllamaQwenProvider.complete()` 内用 `asyncio.run()`，在已有事件循环时会报错 | ⚠️ 未解决（低优先） | Phase 4 全面 async 化时统一解决；当前 CLI 场景无事件循环 |
+
+---
+
+## E.1d Phase 3 执行进度（2026-04-25，✅ 完成）
+
+**Phase 3 目标：** 以 MCP stdio 模式暴露 4 个核心工具（`search` / `ask` / `list_collections` / `get_document_summary`），让 Claude Desktop 可直接调用 askbook 知识库。
+
+**详细计划：** `E:\ClaudeCode\askbook\docs\superpowers\plans\2026-04-24-phase3-mcp-server.md`（5 Tasks + 1 文档任务）
+
+**执行结果：** 182 个测试全绿（83.74% 覆盖率）；`askbook serve` CLI 可用；Harness 30.1.2（`source_ids` 非空 validator）+ 30.v（工具数锁定）验证通过。
+
+---
+
+### ✅ 全部任务已完成
+
+| Task | 内容 | 状态 |
+|------|------|------|
+| 3.1 | ToolResponse 封套 + 4 个 Input/Output 模型 + Harness 30.1.2 validator；`contracts.py` + 10 条单元测试 | ✅ commit `245b711` |
+| 3.2 | VectorStore 新增 `get_document_chunks(doc_id, collection)`；`interfaces.py` + `chroma_store.py` + 3 条集成测试 | ✅ commit `37ae120` |
+| 3.3 | 4 个 handler 纯函数 + `ServerDeps` + `TOOL_REGISTRY`；`tools.py` + 10 条单元测试 | ✅ commit `0bd9334` + refactor `09682d1` |
+| 3.4 | `build_server_deps()` 一次性依赖装配；`deps.py` + 4 条 smoke 测试 | ✅ commit `0e0d5cf` |
+| 3.5 | MCP SDK stdio server（`server.py`）+ `__init__.py` 导出 + `cli.py serve` 命令 + 4 条 subprocess JSON-RPC 集成测试 | ✅ commit `5bd0d57` + portability fix `664e8a7` |
+| 3.6 | `examples/claude_desktop_mcp.json` + README MCP 章节 + DEV_SPEC v2.6 + 质量闸全绿 | ✅ commit `a93907f` |
+
+---
+
+### ⚠️ 遇到的问题与解决方案
+
+| 问题 | 状态 | 解决方案 |
+|------|------|---------|
+| `handle_ask` 在 async `_call_tool` 内部调用 `asyncio.run()`，导致 `RuntimeError: This event loop is already running` | ✅ 已解决 | 改为 `await asyncio.to_thread(handler, inp, deps)` 在新线程中运行同步 handler |
+| `tests/integration/test_mcp_stdio.py` 硬编码 `CWD = "E:/ClaudeCode/askbook"` | ✅ 已解决 | 改为 `str(Path(__file__).parents[2])` 动态获取仓库根目录 |
+| `chroma_store.py` `get` 返回 `Mapping` 类型不兼容 mypy strict `dict[str, Any]` | ✅ 已解决 | 显式 `dict(m)` 转换 |
 
 ---
 
