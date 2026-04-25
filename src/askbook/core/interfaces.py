@@ -181,6 +181,7 @@ class PipelineContext(TypedDict, total=False):
     bm25_results: list[RetrievalResult]
     dense_results: list[RetrievalResult]
     rewritten_query: str
+    original_query: str
     pipeline_trace_id: str
 
 

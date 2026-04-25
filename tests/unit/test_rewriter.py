@@ -53,6 +53,26 @@ def test_query_rewriter_enabled_no_llm_falls_back_to_original() -> None:
     assert out["rewritten_query"] == "bar"
 
 
+def test_rewriter_passthrough_sets_original_query() -> None:
+    node = QueryRewriterNode(enabled=False, trace_writer=_make_trace())
+    ctx = node({"query": "hello", "collection": "col"})  # type: ignore[arg-type]
+    assert ctx["original_query"] == "hello"
+    assert ctx["query"] == "hello"  # passthrough, unchanged
+    assert "rewritten_query" in ctx  # still populated by passthrough path
+
+
+def test_rewriter_enabled_keeps_original_query_intact() -> None:
+    node = QueryRewriterNode(
+        enabled=True,
+        llm=StubLLMProvider(canned_response="hello rewritten"),
+        trace_writer=_make_trace(),
+    )
+    ctx = node({"query": "hello", "collection": "col"})  # type: ignore[arg-type]
+    assert ctx["original_query"] == "hello"  # never changed
+    assert ctx["query"] == "hello rewritten"
+    assert ctx.get("rewritten_query") == "hello rewritten"
+
+
 def test_hyde_disabled_leaves_context_unchanged() -> None:
     node = HyDENode(enabled=False, trace_writer=_make_trace())
     ctx = {"query": "q", "collection": "col"}

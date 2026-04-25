@@ -36,11 +36,21 @@ class QueryRewriterNode(BasePipelineNode):
 
     def run(self, context: PipelineContext) -> PipelineContext:
         original: str = context.get("query", "")
+        preserved_original: str = context.get("original_query", original)
         if not self._enabled or self._llm is None:
-            return {**context, "rewritten_query": original}
+            return {
+                **context,
+                "original_query": preserved_original,
+                "rewritten_query": original,
+            }
         rendered = _load_prompt("query_rewrite.jinja", query=original)
         rewritten = self._llm.complete(rendered).content.strip() or original
-        return {**context, "rewritten_query": rewritten}
+        return {
+            **context,
+            "original_query": preserved_original,
+            "query": rewritten,
+            "rewritten_query": rewritten,
+        }
 
 
 __all__ = ["QueryRewriterNode"]
