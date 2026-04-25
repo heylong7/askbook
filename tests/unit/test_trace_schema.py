@@ -48,6 +48,11 @@ def test_query_span_requires_original_query_field() -> None:
     assert span2.rewritten_query == "q rewritten"
 
 
+def test_query_span_rejects_empty_original_query() -> None:
+    with pytest.raises(ValidationError):
+        QuerySpan(trace_id="t", original_query="")
+
+
 def test_query_span_rejects_raw_text_in_tags() -> None:
     """Harness 30.1.1: TraceEvent tags with forbidden keys raise ValidationError."""
     now = datetime.datetime.now(tz=datetime.UTC)
