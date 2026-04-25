@@ -48,3 +48,11 @@ def test_redact_recursive_on_tuple() -> None:
     data = {"tags": ("alice@example.com", "safe")}
     result = r.apply_to_mapping(data)
     assert result["tags"] == ("<REDACTED:EMAIL>", "safe")
+
+
+def test_email_takes_priority_over_token() -> None:
+    r = Redactor()
+    # Long alphanumeric email local-part must be labelled EMAIL, not TOKEN
+    result = r.apply("aaaaabbbbccccddddeeeeffffgggg12345@example.com")
+    assert "<REDACTED:EMAIL>" in result
+    assert "TOKEN" not in result
