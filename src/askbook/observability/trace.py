@@ -13,6 +13,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
+from askbook.core.interfaces import TraceSpan
 from askbook.observability.redact import Redactor
 from askbook.observability.schema import TraceEvent
 from askbook.observability.sinks import TraceSink
@@ -26,15 +27,15 @@ _current_span_stack: ContextVar[tuple[str, ...]] = ContextVar(
 
 
 @dataclass
-class _RichSpan:
-    node_name: str
+class _RichSpan(TraceSpan):
+    """Enriched span yielded by AsyncTraceWriter; satisfies TraceSpan interface."""
+
     span_id: str = field(default_factory=lambda: uuid.uuid4().hex[:16])
     trace_id: str = ""
     started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-    _attributes: dict[str, object] = field(default_factory=dict, init=False, repr=False)
 
     def set_attribute(self, key: str, value: object) -> None:
-        self._attributes[key] = value
+        self.attributes[key] = value
 
 
 class AsyncTraceWriter:
@@ -74,16 +75,16 @@ class AsyncTraceWriter:
             self._sink.write(batch)
 
     @contextmanager
-    def span(self, node_name: str) -> Iterator[_RichSpan]:
+    def span(self, name: str) -> Iterator[_RichSpan]:
         if not self._enabled:
-            yield _RichSpan(node_name=node_name)
+            yield _RichSpan(name=name)
             return
 
         trace_id = _current_trace_id.get() or uuid.uuid4().hex
         stack = _current_span_stack.get()
         parent_span_id = stack[-1] if stack else None
 
-        s = _RichSpan(node_name=node_name, trace_id=trace_id)
+        s = _RichSpan(name=name, trace_id=trace_id)
 
         trace_token = _current_trace_id.set(trace_id)
         stack_token = _current_span_stack.set(stack + (s.span_id,))
@@ -94,7 +95,7 @@ class AsyncTraceWriter:
                 span_id=s.span_id,
                 parent_span_id=parent_span_id,
                 event_type="span_start",
-                node_name=node_name,
+                node_name=name,
                 timestamp_utc=datetime.now(UTC),
             )
         )
@@ -110,7 +111,7 @@ class AsyncTraceWriter:
                     span_id=s.span_id,
                     parent_span_id=parent_span_id,
                     event_type="error",
-                    node_name=node_name,
+                    node_name=name,
                     timestamp_utc=datetime.now(UTC),
                     error=str(exc),
                 )
@@ -122,14 +123,14 @@ class AsyncTraceWriter:
             if exc_raised is None:
                 now = datetime.now(UTC)
                 duration_ms = (now - s.started_at).total_seconds() * 1000
-                tags = self._redactor.apply_to_mapping(s._attributes)
+                tags = self._redactor.apply_to_mapping(s.attributes)
                 self._enqueue(
                     TraceEvent(
                         trace_id=trace_id,
                         span_id=s.span_id,
                         parent_span_id=parent_span_id,
                         event_type="span_end",
-                        node_name=node_name,
+                        node_name=name,
                         timestamp_utc=now,
                         duration_ms=duration_ms,
                         tags=tags,

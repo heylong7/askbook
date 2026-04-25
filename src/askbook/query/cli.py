@@ -7,7 +7,7 @@ from pathlib import Path
 import typer
 
 from askbook.core.registry import ServiceRegistry
-from askbook.observability.null_trace import NullTraceWriter
+from askbook.observability.registry import build_trace_writer
 from askbook.query.fusion import RRFFusionNode
 from askbook.query.hyde import HyDENode
 from askbook.query.pipeline import QueryPipeline
@@ -32,7 +32,7 @@ def run_query(
     store = reg.build_vectorstore(cfg.vectorstore)
     llm = reg.build_llm(cfg.llm)
     reranker = reg.build_reranker(cfg.query)
-    trace = NullTraceWriter()
+    trace = build_trace_writer(cfg.observability)
 
     bm25_path = Path(cfg.data_dir).expanduser() / "bm25" / f"{collection}.pkl"
     bm25 = BM25PersistentIndex(path=bm25_path)
@@ -62,6 +62,7 @@ def run_query(
         namespace=collection, embed_model=embedder.model_name
     )
     answer = pipeline.run(query=question, collection=collection_full)
+    trace.flush()
 
     typer.echo(answer.text)
     typer.echo("")

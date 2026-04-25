@@ -10,6 +10,7 @@ from askbook.core.interfaces import (
     BasePipelineNode,
     LLMProviderProtocol,
     PipelineContext,
+    TraceSpan,
     TraceWriterProtocol,
 )
 
@@ -33,6 +34,12 @@ class QueryRewriterNode(BasePipelineNode):
         super().__init__(name="query_rewriter", trace_writer=trace_writer)
         self._llm = llm
         self._enabled = enabled
+
+    def after_run(self, context: PipelineContext, span: TraceSpan) -> None:
+        span.attributes["original_query"] = context.get("original_query", "")
+        rewritten = context.get("rewritten_query")
+        if rewritten and rewritten != context.get("original_query"):
+            span.attributes["rewritten_query"] = rewritten
 
     def run(self, context: PipelineContext) -> PipelineContext:
         original: str = context.get("query", "")

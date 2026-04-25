@@ -10,6 +10,7 @@ from askbook.core.interfaces import (
     BasePipelineNode,
     LLMProviderProtocol,
     PipelineContext,
+    TraceSpan,
     TraceWriterProtocol,
 )
 from askbook.core.models import Answer, Citation, RetrievalResult, TokenUsage
@@ -34,6 +35,13 @@ class AnswerSynthesizerNode(BasePipelineNode):
     ) -> None:
         super().__init__(name="answer_synthesizer", trace_writer=trace_writer)
         self._llm = llm
+
+    def after_run(self, context: PipelineContext, span: TraceSpan) -> None:
+        answer = context.get("answer")
+        if answer is not None:
+            span.attributes["answer_source_ids"] = [
+                c.chunk_id for c in answer.citations
+            ]
 
     def run(self, context: PipelineContext) -> PipelineContext:
         results: list[RetrievalResult] = context.get("retrieval_results", [])

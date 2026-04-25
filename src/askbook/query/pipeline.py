@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from askbook.core.interfaces import PipelineContext
 from askbook.core.models import Answer
+from askbook.observability.trace import use_trace_id
 from askbook.query.fusion import RRFFusionNode
 from askbook.query.hyde import HyDENode
 from askbook.query.reranker_stage import CrossEncoderRerankNode, LLMFineRerankNode
@@ -38,16 +39,17 @@ class QueryPipeline:
             "collection": collection,
             "pipeline_trace_id": trace_id,
         }
-        for node in (
-            self.rewriter,
-            self.hyde,
-            self.retriever_node,
-            self.fusion_node,
-            self.ce_rerank_node,
-            self.llm_rerank_node,
-            self.synthesizer_node,
-        ):
-            ctx = node(ctx)
+        with use_trace_id(trace_id):
+            for node in (
+                self.rewriter,
+                self.hyde,
+                self.retriever_node,
+                self.fusion_node,
+                self.ce_rerank_node,
+                self.llm_rerank_node,
+                self.synthesizer_node,
+            ):
+                ctx = node(ctx)
         return ctx["answer"]
 
 
