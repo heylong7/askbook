@@ -96,9 +96,25 @@ def eval_(
 
 
 @app.command()
-def serve() -> None:
-    """Launch the MCP stdio server (Phase 3)."""
-    raise typer.Exit(code=0)
+def serve(
+    collection: Annotated[
+        str,
+        typer.Option(help="Default collection for BM25 index binding."),
+    ] = "default",
+    config: Annotated[
+        str,
+        typer.Option("--config", help="Path to YAML config file."),
+    ] = "",
+) -> None:
+    """Launch the MCP stdio server."""
+    from pathlib import Path as _Path
+
+    from askbook.mcp_server import run_server
+
+    run_server(
+        config_path=_Path(config) if config else None,
+        collection_hint=collection,
+    )
 
 
 @app.command()
