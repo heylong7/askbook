@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 TIMEOUT = 20  # seconds — generous for startup on Windows
-CWD = "E:/ClaudeCode/askbook"
+CWD = str(Path(__file__).parents[2])  # repo root: tests/integration/../../
 
 
 # ---------------------------------------------------------------------------
