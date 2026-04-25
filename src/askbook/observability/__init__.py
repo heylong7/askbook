@@ -7,10 +7,16 @@ from askbook.observability.schema import (
     QuerySpan,
     TraceEvent,
 )
+from askbook.observability.sinks import FileSink, MultiSink, NullSink
+from askbook.observability.trace import AsyncTraceWriter
 
 __all__ = [
+    "AsyncTraceWriter",
+    "FileSink",
     "IngestionSpan",
     "MCPToolSpan",
+    "MultiSink",
+    "NullSink",
     "QuerySpan",
     "Redactor",
     "TraceEvent",
