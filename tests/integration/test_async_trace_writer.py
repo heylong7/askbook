@@ -90,8 +90,6 @@ def test_concurrent_100_spans_no_loss(tmp_path: Path) -> None:
 
 def test_atexit_flush_persists_buffered_events(tmp_path: Path) -> None:
     script = textwrap.dedent(f"""
-        import sys
-        sys.path.insert(0, r"{Path("E:/ClaudeCode/askbook/src").as_posix()}")
         from pathlib import Path
         from askbook.observability.sinks import FileSink
         from askbook.observability.trace import AsyncTraceWriter
@@ -104,7 +102,6 @@ def test_atexit_flush_persists_buffered_events(tmp_path: Path) -> None:
         for _ in range(5):
             with writer.span("node"):
                 pass
-        sys.exit(0)
     """)
 
     import subprocess

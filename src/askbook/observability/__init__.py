@@ -8,10 +8,11 @@ from askbook.observability.schema import (
     TraceEvent,
 )
 from askbook.observability.sinks import FileSink, MultiSink, NullSink
-from askbook.observability.trace import AsyncTraceWriter
+from askbook.observability.trace import AsyncTraceWriter, use_trace_id
 
 __all__ = [
     "AsyncTraceWriter",
+    "use_trace_id",
     "FileSink",
     "IngestionSpan",
     "MCPToolSpan",
