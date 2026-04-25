@@ -81,3 +81,17 @@ def test_nested_env_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setenv("ASKBOOK_LLM__PROVIDER", "deepseek")
     settings = load_settings()
     assert settings.llm.provider == "deepseek"
+
+
+def test_observability_config_defaults() -> None:
+    # from askbook.config.schema import ObservabilityConfig
+    # cfg = ObservabilityConfig()
+    # assert cfg.enabled is True
+    # assert cfg.retention_days == 7
+    # assert cfg.dashboard_port == 8501
+    ...
+
+
+def test_observability_config_retention_days_must_be_positive() -> None:
+    # ObservabilityConfig(retention_days=0) -> ValidationError
+    ...

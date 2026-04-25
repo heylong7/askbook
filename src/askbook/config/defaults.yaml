@@ -45,3 +45,6 @@ observability:
   trace_dir: ~/.askbook/traces
   flush_interval_seconds: 1.0
   pii_redaction: true
+  enabled: true
+  retention_days: 7
+  dashboard_port: 8501

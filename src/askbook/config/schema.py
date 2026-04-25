@@ -59,6 +59,9 @@ class ObservabilityConfig(BaseModel):
     trace_dir: str = "~/.askbook/traces"
     flush_interval_seconds: float = 1.0
     pii_redaction: bool = True
+    enabled: bool = True
+    retention_days: int = Field(default=7, ge=1)
+    dashboard_port: int = Field(default=8501, ge=1)
 
 
 __all__ = [
