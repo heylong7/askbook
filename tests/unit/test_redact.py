@@ -32,3 +32,19 @@ def test_redact_recursive_on_dict() -> None:
     result = r.apply_to_mapping(data)
     assert result["q"] == "<REDACTED:EMAIL>"
     assert result["nested"]["phone"] == "<REDACTED:PHONE>"
+
+
+def test_redact_phone_no_false_positive_in_longer_digits() -> None:
+    r = Redactor()
+    # Chinese ID number contains 11-digit substring matching phone pattern —
+    # word boundary must prevent false positive
+    id_number = "110113199013800138"
+    result = r.apply(id_number)
+    assert result == id_number  # should NOT be redacted
+
+
+def test_redact_recursive_on_tuple() -> None:
+    r = Redactor()
+    data = {"tags": ("alice@example.com", "safe")}
+    result = r.apply_to_mapping(data)
+    assert result["tags"] == ("<REDACTED:EMAIL>", "safe")

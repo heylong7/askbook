@@ -16,11 +16,11 @@ _PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
         "EMAIL",
     ),
     (
-        re.compile(r"1[3-9]\d{9}"),
+        re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)"),
         "PHONE",
     ),
     (
-        re.compile(r"[A-Za-z0-9+/]{32,}"),
+        re.compile(r"(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{32,2048}(?![A-Za-z0-9+/])"),
         "TOKEN",
     ),
 )
@@ -53,6 +53,6 @@ class Redactor:
             return self.apply(value)
         if isinstance(value, Mapping):
             return self.apply_to_mapping(value)
-        if isinstance(value, list):
-            return [self._redact_value(item) for item in value]
+        if isinstance(value, (list, tuple)):
+            return type(value)(self._redact_value(item) for item in value)
         return value
