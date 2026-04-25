@@ -59,6 +59,7 @@ ignore = []
 "tests/**" = ["ANN"]
 "src/askbook/core/registry.py" = ["ANN401"]
 "src/askbook/vectorstores/chroma_store.py" = ["ANN401"]
+"src/askbook/observability/redact.py" = ["ANN401"]
 
 [tool.mypy]
 strict = true
