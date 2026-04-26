@@ -122,6 +122,7 @@ markers = [
   "requires_ollama: integration test that needs a local Ollama daemon",
   "requires_dashscope: integration test that needs DashScope API key",
   "requires_bge_m3: integration test that downloads BGE-M3 weights",
+  "slow: long-running benchmarks skipped in regular CI (run with -m slow)",
 ]
 
 [tool.coverage.run]
