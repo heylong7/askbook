@@ -99,4 +99,42 @@ uv run pytest -q
 uv run ruff check . && uv run ruff format --check . && uv run mypy --strict src/ && uv run pytest --cov=src/askbook --cov-fail-under=80 -q
 ```
 
-详细开发规范见 `DEV_SPEC.md`。当前进度：Phase 3（MCP Server）✅ 完成，182 个测试，83.74% 覆盖率。
+详细开发规范见 `DEV_SPEC.md`。当前进度：Phase 4（Trace + Dashboard）✅ 完成，252 个测试，覆盖率 ≥ 80%。
+
+## 可观测性（Trace + Dashboard）
+
+askbook 内置异步 JSONL Trace，无需外部 APM。
+
+### Trace 写入
+
+每次运行 `ingest` / `query` / MCP 调用时，自动将 span 事件追加到：
+
+```
+~/.askbook/traces/YYYY-MM-DD.jsonl
+```
+
+### 查看 Dashboard
+
+```bash
+uv run askbook dashboard          # 使用默认端口 8501
+uv run askbook dashboard --port 9000
+```
+
+浏览器打开 `http://localhost:8501`，可查看：
+- **页面 1 — 系统总览**：今日 Query 数 / P50 延迟 / Token 总量 / 各组件健康状态
+- **页面 2 — 数据浏览**：Chroma Collection 文档列表与 Chunk 预览
+- **页面 3 — Ingestion 监控**：Ingestion 运行记录 + Plotly Gantt 甘特图
+
+### 配置项
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `observability.enabled` | `true` | 关闭后所有写入操作短路，恢复 NullTraceWriter |
+| `observability.trace_dir` | `~/.askbook/traces` | JSONL 文件存储目录 |
+| `observability.retention_days` | `7` | 自动清理超过此天数的 trace 文件 |
+| `observability.pii_redaction` | `true` | 写入前对手机号 / 邮箱 / token 串脱敏 |
+| `observability.dashboard_port` | `8501` | Streamlit 默认端口 |
+
+### Harness 30.1.3 说明
+
+`QuerySpan.original_query` 是必填字段，由 `QueryRewriterNode` 在 passthrough 和改写两种模式下均保证写入，为 Phase 6 Rewrite Diff 视图提供数据支撑。

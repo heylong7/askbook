@@ -2484,6 +2484,45 @@ Phase 1 目标：实现 `askbook ingest <path>` 端到端可用，7 节点 Inges
 
 ---
 
+### E.1e Phase 4 执行进度（2026-04-26，✅ 完成）
+
+**目标**：AsyncTraceWriter 全链路贯通（Ingestion / Query / MCP）+ Streamlit Dashboard 三页 + CLI 子命令 + 质量闸全绿。
+
+| Task | 描述 | 状态 | Commit |
+|------|------|------|--------|
+| 4.1 | `ObservabilityConfig` — enabled / trace_dir / retention_days / pii_redaction / dashboard_port | ✅ | `1830907` |
+| 4.2 | `FileSink` + `NullSink` + `MultiSink` + retention 清理 | ✅ | `67fa5b6` |
+| 4.3 | PII 脱敏（phone / email / token 正则）+ 优先级锁定测试 | ✅ | `64ed295` + `4c8798a` + `bb97be3` |
+| 4.4 | `TraceSpan` schema + `QuerySpan.original_query`（Harness 30.1.3）| ✅ | `364681b` + `8170f3e` |
+| 4.5 | `AsyncTraceWriter` — 后台线程 + queue + `span()` CM + `flush()` / `close()` 分离 | ✅ | `6ee0991` |
+| 4.6 | `use_trace_id()` ContextVar CM + 跨节点 trace_id 传播 | ✅ | `70334d6` |
+| 4.7 | `build_trace_writer()` 工厂函数 | ✅ | `16f1ad2` |
+| 4.8 | QueryPipeline trace 贯通 + 各节点属性写入 + `original_query` 保存 | ✅ | `3a8f03f` + `51b164e` |
+| 4.9 | IngestionPipeline trace 贯通（7 节点，含 dry-run 测试）| ✅ | `9ce2247` |
+| 4.10 | MCP 4 个 handler 包裹 trace span；`deps.py` 注入真实 writer | ✅ | `71cdd06` |
+| 4.11 | Dashboard `loader.py`（load_events / aggregate）+ `health.py`（LLM / Store / BM25 探针）| ✅ | `b805f97` + `0fba287` |
+| 4.12 | Dashboard `app.py` Streamlit 入口 + sidebar 配置 | ✅ | `771e040` |
+| 4.13 | Page 1 — 系统总览（today_queries / P50 / tokens / 健康状态）| ✅ | `771e040` |
+| 4.14 | Page 2 — 数据浏览（list_documents 公共方法 + Chunk 预览）| ✅ | `1f4da00` |
+| 4.15 | Page 3 — Ingestion 监控（运行表 + Plotly Gantt）+ 三页 AppTest smoke 测试 | ✅ | `adc005e` |
+| 4.16 | `askbook dashboard` CLI 子命令（--port + subprocess.run）| ✅ | `7601e4a` |
+| 4.17 | `@pytest.mark.slow` 性能基准：AsyncTraceWriter P95 开销参考值 | ✅ | `50943e2` |
+| 4.18 | README 可观测性章节 + DEV_SPEC E.1e 执行记录 + 质量闸全绿 | ✅ | _(本次提交)_ |
+
+#### 遇到的问题与解决方案
+
+| 问题 | 状态 | 解决方案 |
+|------|------|---------|
+| `flush()` 调用后停止 worker，MCP Server 后续 span 静默丢失 | ✅ | 拆分 `flush()`（仅 drain）与 `close()`（stop+drain+sink.close()） |
+| `IngestionPipeline.cli.py` 未用 try/finally 包裹，异常时丢失 trace | ✅ | `try: pipeline.run() finally: trace.flush()` |
+| `nodes.py` 使用 `span: object` + isinstance 守卫，mypy strict 不通过 | ✅ | 直接改为 `span: TraceSpan`，移至模块级 import |
+| `loader.py` 在 trace_dir 不存在时 crash | ✅ | `if not trace_dir.exists(): return []` 守卫 |
+| Page 2 通过私有 `_get_collection()` 访问 ChromaDB | ✅ | 新增 `ChromaVectorStore.list_documents()` 公共方法 |
+| Dashboard smoke 测试硬编码绝对路径，CI 不稳定 | ✅ | 改为 `Path(__file__).parents[2]` 动态解析仓库根 |
+| ruff `SIM108` 要求三元表达式替换 if/else 赋值块 | ✅ | 直接改写为三元语法 |
+
+---
+
 ## E.2 验收标准模板
 
 所有子任务统一三段式验收：
@@ -2536,7 +2575,7 @@ Phase 3 与 Phase 4 可在 Phase 2 完成后并行；其余严格顺序。
 | Phase 1 — Ingestion MVP | `C:\Users\heylong\.claude\plans\phase1-ingestion-detail.md` | ✅ 完成（2026-04-23，Task 1.0–1.11 全部 ✅） |
 | Phase 2 — Query MVP | `E:\ClaudeCode\askbook\docs\superpowers\plans\2026-04-23-phase2-query-mvp.md` | ✅ 完成（2026-04-24，150 tests，83% cov） |
 | Phase 3 — MCP Server | `C:\Users\heylong\.claude\plans\phase3-mcp-detail.md` | ✅ 完成（2026-04-25，4 tools，Harness 30.1.2 ✅） |
-| Phase 4 — Trace + Dashboard | `C:\Users\heylong\.claude\plans\phase4-observability-detail.md` | 🟡 待生成 |
+| Phase 4 — Trace + Dashboard | `C:\Users\heylong\.claude\plans\phase4-observability-detail.md` | ✅ 完成（2026-04-26，18 Tasks，Harness 30.1.3 ✅） |
 | Phase 5 — Eval v0.1 | `C:\Users\heylong\.claude\plans\phase5-eval-detail.md` | 🟡 待生成 |
 | Phase 6 — v0.5 扩展 | `C:\Users\heylong\.claude\plans\phase6-v05-detail.md` | 🟡 待生成 |
 | Phase 7 — Harness + v1.0 | `C:\Users\heylong\.claude\plans\phase7-harness-v10-detail.md` | 🟡 待生成 |
