@@ -107,6 +107,13 @@ ignore_missing_imports = true
 module = ["streamlit", "streamlit.*", "plotly", "plotly.*"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = [
+  "askbook.dashboard.app",
+  "askbook.dashboard.pages.*",
+]
+disallow_untyped_decorators = false
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers --strict-config"
