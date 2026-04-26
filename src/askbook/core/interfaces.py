@@ -157,8 +157,15 @@ class VectorStoreABC(ABC):
 class TraceSpan:
     """Runtime span object passed to pipeline nodes.
 
-    Concrete TraceWriter implementations (Phase 4) return richer objects;
-    the dataclass here keeps Phase 0 testable without observability deps."""
+    Intentionally NOT frozen: span attributes are accumulated by calling
+    set_attribute() during a node's execution within a trace span context.
+    The attributes dict is mutated in-place, which is safe because each span
+    instance is owned by a single execution context and not shared.
+
+    Concrete TraceWriter implementations (Phase 4) return _RichSpan instances
+    which inherit from this class; the dataclass here keeps Phase 0 testable
+    without observability deps.
+    """
 
     name: str
     attributes: dict[str, Any] = field(default_factory=dict)

@@ -148,11 +148,13 @@ class AsyncTraceWriter:
                 self._queue.put_nowait(event)
 
     def flush(self) -> None:
-        self._stop.set()
+        """Drain buffered events to sink WITHOUT stopping the worker thread."""
         self._drain()
 
     def close(self) -> None:
-        self.flush()
+        """Stop the worker thread, drain remaining events, and close the sink."""
+        self._stop.set()
+        self._drain()
         self._sink.close()
 
 
