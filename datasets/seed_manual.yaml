@@ -1,0 +1,22 @@
+_meta:
+  version: "0.1"
+  reviewed_by: ""
+  reviewed_at: ""
+  collection: "demo"
+  notes: "askbook seed manual QA — Phase 5"
+
+items:
+  - qid: "Q000"
+    question: "askbook 是否对完全不存在的概念返回空结果？"
+    ground_truth: "应返回 status=warning 与空 source_ids。"
+    relevant_chunk_ids: []
+    relevant_doc_ids: []
+    provenance: "manual"
+    tags: ["empty_source"]
+  - qid: "Q001"
+    question: "askbook 的混合检索使用了哪两种召回方式？"
+    ground_truth: "BM25（稀疏）+ BGE-M3（稠密），通过 RRF 融合。"
+    relevant_chunk_ids: []
+    relevant_doc_ids: []
+    provenance: "manual"
+    tags: ["retrieval", "empty_source"]
