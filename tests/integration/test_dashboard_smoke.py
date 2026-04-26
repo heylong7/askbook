@@ -11,6 +11,10 @@ from askbook.config.schema import ObservabilityConfig, VectorStoreConfig
 from askbook.config.settings import Settings
 from askbook.observability.schema import TraceEvent
 
+_REPO_ROOT = Path(__file__).parents[2]
+_PAGES_DIR = _REPO_ROOT / "src" / "askbook" / "dashboard" / "pages"
+_APP_TIMEOUT_S = 20  # generous limit for slow CI runners
+
 
 def _make_settings(tmp_path: Path) -> Settings:
     """Return a Settings instance pointing observability and vectorstore at tmp_path."""
@@ -50,9 +54,9 @@ def test_overview_page_renders_without_exception(tmp_path: Path) -> None:
 
     cfg = _make_settings(tmp_path)
 
-    at = AppTest.from_file("src/askbook/dashboard/pages/1_overview.py")
+    at = AppTest.from_file(str(_PAGES_DIR / "1_overview.py"))
     at.session_state["cfg"] = cfg
-    at.run(timeout=20)
+    at.run(timeout=_APP_TIMEOUT_S)
 
     assert not at.exception
     assert len(at.metric) >= 1
@@ -62,9 +66,9 @@ def test_data_browser_page_handles_empty_chroma(tmp_path: Path) -> None:
     """Page 2 shows an info message when no Chroma collections exist."""
     cfg = _make_settings(tmp_path)
 
-    at = AppTest.from_file("src/askbook/dashboard/pages/2_data_browser.py")
+    at = AppTest.from_file(str(_PAGES_DIR / "2_data_browser.py"))
     at.session_state["cfg"] = cfg
-    at.run(timeout=20)
+    at.run(timeout=_APP_TIMEOUT_S)
 
     assert not at.exception
     assert len(at.info) >= 1
@@ -72,14 +76,13 @@ def test_data_browser_page_handles_empty_chroma(tmp_path: Path) -> None:
 
 def test_ingestion_page_renders_when_no_traces(tmp_path: Path) -> None:
     """Page 3 shows an info message when the trace directory is empty."""
-    # Create an empty traces dir so the loader doesn't choke on a missing path
     (tmp_path / "traces").mkdir(parents=True)
 
     cfg = _make_settings(tmp_path)
 
-    at = AppTest.from_file("src/askbook/dashboard/pages/3_ingestion.py")
+    at = AppTest.from_file(str(_PAGES_DIR / "3_ingestion.py"))
     at.session_state["cfg"] = cfg
-    at.run(timeout=20)
+    at.run(timeout=_APP_TIMEOUT_S)
 
     assert not at.exception
     assert len(at.info) >= 1
