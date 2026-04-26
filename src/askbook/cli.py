@@ -126,5 +126,30 @@ def migrate(
     raise typer.Exit(code=0)
 
 
+@app.command()
+def dashboard(
+    config: Annotated[
+        str, typer.Option("--config", help="Path to YAML config file.")
+    ] = "",
+    port: Annotated[
+        int, typer.Option("--port", help="Streamlit server port (0 = default 8501).")
+    ] = 0,
+) -> None:
+    """Launch the Streamlit dashboard."""
+    import os
+    import subprocess
+    import sys
+    from importlib.resources import files
+
+    app_path = str(files("askbook.dashboard").joinpath("app.py"))
+    env = os.environ.copy()
+    if config:
+        env["ASKBOOK_CONFIG"] = config
+    cmd = [sys.executable, "-m", "streamlit", "run", app_path]
+    if port:
+        cmd += ["--server.port", str(port)]
+    subprocess.run(cmd, env=env, check=False)
+
+
 if __name__ == "__main__":
     app()
