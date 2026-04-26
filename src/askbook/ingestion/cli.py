@@ -9,6 +9,7 @@ import typer
 from askbook.config.settings import Settings, load_settings
 from askbook.core.registry import ServiceRegistry
 from askbook.ingestion.pipeline import IngestionPipeline
+from askbook.observability.registry import build_trace_writer
 from askbook.vectorstores.bm25_index import BM25PersistentIndex
 
 
@@ -33,20 +34,26 @@ def run_ingest(
     bm25_path = bm25_dir / f"{collection}.pkl"
     bm25 = BM25PersistentIndex(path=bm25_path)
 
+    trace = build_trace_writer(cfg.observability)
+
     pipeline = IngestionPipeline(
         embedder=embedder,
         store=store,
         bm25_index=bm25,
         chunk_size=cfg.ingestion.chunk_size,
         chunk_overlap=cfg.ingestion.chunk_overlap,
+        trace_writer=trace,
     )
 
-    result = pipeline.run(
-        source=source,
-        collection=collection,
-        dry_run=dry_run,
-        force_reindex=force_reindex,
-    )
+    try:
+        result = pipeline.run(
+            source=source,
+            collection=collection,
+            dry_run=dry_run,
+            force_reindex=force_reindex,
+        )
+    finally:
+        trace.flush()
 
     prefix = "[DRY-RUN] " if dry_run else ""
     typer.echo(

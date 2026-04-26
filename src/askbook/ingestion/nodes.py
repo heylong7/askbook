@@ -9,6 +9,7 @@ from askbook.core.interfaces import (
     BasePipelineNode,
     EmbedderProtocol,
     PipelineContext,
+    TraceSpan,
     TraceWriterProtocol,
     VectorStoreABC,
 )
@@ -28,6 +29,9 @@ class DocumentLoaderNode(BasePipelineNode):
         docs = [self._loader.load(p) for p in MarkItDownLoader.iter_files(source)]
         return {**context, "documents": docs}
 
+    def after_run(self, context: PipelineContext, span: TraceSpan) -> None:
+        span.attributes["load_count"] = len(context.get("documents", []))
+
 
 class SplitterNode(BasePipelineNode):
     def __init__(
@@ -45,6 +49,9 @@ class SplitterNode(BasePipelineNode):
         docs = context.get("documents", [])
         chunks = [c for d in docs for c in self._splitter.split(d)]
         return {**context, "chunks": chunks}
+
+    def after_run(self, context: PipelineContext, span: TraceSpan) -> None:
+        span.attributes["chunk_count"] = len(context.get("chunks", []))
 
 
 class EnrichmentNode(BasePipelineNode):
@@ -95,6 +102,9 @@ class EmbeddingNode(BasePipelineNode):
         ]
         return {**context, "new_chunks": embedded}
 
+    def after_run(self, context: PipelineContext, span: TraceSpan) -> None:
+        span.attributes["embed_count"] = len(context.get("new_chunks", []))
+
 
 class VectorStoreWriteNode(BasePipelineNode):
     def __init__(
@@ -117,6 +127,9 @@ class VectorStoreWriteNode(BasePipelineNode):
             if new_chunks:
                 self._store.upsert(new_chunks, collection=collection)
         return context
+
+    def after_run(self, context: PipelineContext, span: TraceSpan) -> None:
+        span.attributes["written_count"] = len(context.get("new_chunks", []))
 
     def _store_delete_ids(self, ids: list[str], collection: str) -> None:
         from askbook.vectorstores.chroma_store import ChromaVectorStore
