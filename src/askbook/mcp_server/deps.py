@@ -14,7 +14,7 @@ from pathlib import Path
 from askbook.config import load_settings
 from askbook.core.registry import ServiceRegistry
 from askbook.mcp_server.tools import ServerDeps
-from askbook.observability.null_trace import NullTraceWriter
+from askbook.observability.registry import build_trace_writer
 from askbook.query.fusion import RRFFusionNode
 from askbook.query.hyde import HyDENode
 from askbook.query.pipeline import QueryPipeline
@@ -42,7 +42,7 @@ def build_server_deps(
     store = reg.build_vectorstore(cfg.vectorstore)
     llm = reg.build_llm(cfg.llm)
     reranker = reg.build_reranker(cfg.query)
-    trace = NullTraceWriter()
+    trace = build_trace_writer(cfg.observability)
 
     bm25_path = Path(cfg.data_dir).expanduser() / "bm25" / f"{collection_hint}.pkl"
     bm25 = BM25PersistentIndex(path=bm25_path)
@@ -73,6 +73,7 @@ def build_server_deps(
         store=store,
         embedder=embedder,
         fallback_text=AnswerSynthesizerNode.FALLBACK_TEXT,
+        trace_writer=trace,
     )
 
 

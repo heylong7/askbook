@@ -9,12 +9,16 @@ Layer 2 of 3:
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from pydantic import BaseModel
 
-from askbook.core.interfaces import EmbedderProtocol, VectorStoreABC
+from askbook.core.interfaces import (
+    EmbedderProtocol,
+    TraceWriterProtocol,
+    VectorStoreABC,
+)
 from askbook.mcp_server.contracts import (
     AskData,
     AskInput,
@@ -26,6 +30,7 @@ from askbook.mcp_server.contracts import (
     SearchInput,
     ToolResponse,
 )
+from askbook.observability.null_trace import NullTraceWriter
 from askbook.query.pipeline import QueryPipeline
 
 # Maximum number of first snippets returned by get_document_summary
@@ -46,6 +51,7 @@ class ServerDeps:
     store: VectorStoreABC
     embedder: EmbedderProtocol
     fallback_text: str  # copy of AnswerSynthesizerNode.FALLBACK_TEXT
+    trace_writer: TraceWriterProtocol = field(default_factory=NullTraceWriter)
 
 
 # ---------------------------------------------------------------------------
@@ -55,39 +61,49 @@ class ServerDeps:
 
 def handle_search(inp: SearchInput, deps: ServerDeps) -> ToolResponse:
     """Semantic search over a collection; returns ranked hit snippets."""
-    collection = deps.store.make_collection_name(
-        namespace=inp.collection, embed_model=deps.embedder.model_name
-    )
-    query_vec = deps.embedder.embed_query(inp.query)
-    results = deps.store.search(query_vec, collection, top_k=inp.top_k)
+    with deps.trace_writer.span("mcp.search") as span:
+        span.set_attribute("collection", inp.collection)
+        span.set_attribute("query", inp.query)
 
-    if not results:
-        return ToolResponse(
-            status="warning",
-            summary=(
-                f"No results found for query '{inp.query}'"
-                f" in collection '{inp.collection}'."
-            ),
-            source_ids=[],
+        collection = deps.store.make_collection_name(
+            namespace=inp.collection, embed_model=deps.embedder.model_name
         )
+        query_vec = deps.embedder.embed_query(inp.query)
+        results = deps.store.search(query_vec, collection, top_k=inp.top_k)
 
-    hits = [
-        SearchHit(
-            chunk_id=r.chunk_id,
-            score=r.score,
-            snippet=r.snippet[:_SNIPPET_MAX_LEN],
-            retrieval_method=r.retrieval_method,
-        ).model_dump()
-        for r in results
-    ]
-    source_ids = [r.chunk_id for r in results]
+        if not results:
+            response = ToolResponse(
+                status="warning",
+                summary=(
+                    f"No results found for query '{inp.query}'"
+                    f" in collection '{inp.collection}'."
+                ),
+                source_ids=[],
+            )
+            span.set_attribute("status", response.status)
+            span.set_attribute("source_ids", response.source_ids)
+            return response
 
-    return ToolResponse(
-        status="success",
-        summary=f"Found {len(results)} result(s) for '{inp.query}'.",
-        data={"hits": hits},
-        source_ids=source_ids,
-    )
+        hits = [
+            SearchHit(
+                chunk_id=r.chunk_id,
+                score=r.score,
+                snippet=r.snippet[:_SNIPPET_MAX_LEN],
+                retrieval_method=r.retrieval_method,
+            ).model_dump()
+            for r in results
+        ]
+        source_ids = [r.chunk_id for r in results]
+
+        response = ToolResponse(
+            status="success",
+            summary=f"Found {len(results)} result(s) for '{inp.query}'.",
+            data={"hits": hits},
+            source_ids=source_ids,
+        )
+        span.set_attribute("status", response.status)
+        span.set_attribute("source_ids", response.source_ids)
+        return response
 
 
 # ---------------------------------------------------------------------------
@@ -97,36 +113,46 @@ def handle_search(inp: SearchInput, deps: ServerDeps) -> ToolResponse:
 
 def handle_ask(inp: AskInput, deps: ServerDeps) -> ToolResponse:
     """Run the full RAG query pipeline and return a synthesized answer."""
-    collection = deps.store.make_collection_name(
-        namespace=inp.collection, embed_model=deps.embedder.model_name
-    )
-    answer = deps.pipeline.run(query=inp.question, collection=collection)
+    with deps.trace_writer.span("mcp.ask") as span:
+        span.set_attribute("collection", inp.collection)
+        span.set_attribute("question", inp.question)
 
-    # Treat fallback text or missing citations as a warning (no reliable sources)
-    is_fallback = answer.text == deps.fallback_text or not answer.citations
-    if is_fallback:
-        return ToolResponse(
-            status="warning",
-            summary=(
-                "Knowledge base returned no relevant context; answer is a fallback."
-            ),
-            data={"answer": answer.text, "citations": [], "usage": {}},
-            source_ids=[],
+        collection = deps.store.make_collection_name(
+            namespace=inp.collection, embed_model=deps.embedder.model_name
         )
+        answer = deps.pipeline.run(query=inp.question, collection=collection)
 
-    ask_data = AskData(
-        answer=answer.text,
-        citations=answer.citations,
-        usage=answer.usage,
-    )
-    source_ids = [c.chunk_id for c in answer.citations]
+        # Treat fallback text or missing citations as a warning (no reliable sources)
+        is_fallback = answer.text == deps.fallback_text or not answer.citations
+        if is_fallback:
+            response = ToolResponse(
+                status="warning",
+                summary=(
+                    "Knowledge base returned no relevant context; answer is a fallback."
+                ),
+                data={"answer": answer.text, "citations": [], "usage": {}},
+                source_ids=[],
+            )
+            span.set_attribute("status", response.status)
+            span.set_attribute("source_ids", response.source_ids)
+            return response
 
-    return ToolResponse(
-        status="success",
-        summary=f"Answer synthesized from {len(answer.citations)} source(s).",
-        data=ask_data.model_dump(),
-        source_ids=source_ids,
-    )
+        ask_data = AskData(
+            answer=answer.text,
+            citations=answer.citations,
+            usage=answer.usage,
+        )
+        source_ids = [c.chunk_id for c in answer.citations]
+
+        response = ToolResponse(
+            status="success",
+            summary=f"Answer synthesized from {len(answer.citations)} source(s).",
+            data=ask_data.model_dump(),
+            source_ids=source_ids,
+        )
+        span.set_attribute("status", response.status)
+        span.set_attribute("source_ids", response.source_ids)
+        return response
 
 
 # ---------------------------------------------------------------------------
@@ -138,32 +164,39 @@ def handle_list_collections(
     inp: ListCollectionsInput, deps: ServerDeps
 ) -> ToolResponse:
     """List all collections available in the vector store."""
-    collections = deps.store.list_collections()
+    with deps.trace_writer.span("mcp.list_collections") as span:
+        collections = deps.store.list_collections()
 
-    if not collections:
-        return ToolResponse(
-            status="warning",
-            summary="No collections found in the vector store.",
-            source_ids=[],
+        if not collections:
+            response = ToolResponse(
+                status="warning",
+                summary="No collections found in the vector store.",
+                source_ids=[],
+            )
+            span.set_attribute("status", response.status)
+            span.set_attribute("source_ids", response.source_ids)
+            return response
+
+        descriptors = [
+            CollectionDescriptor(
+                namespace=info.name.split("__")[0],
+                full_name=info.name,
+                chunk_count=info.size,
+                embed_model=info.embed_model,
+            ).model_dump()
+            for info in collections
+        ]
+        source_ids = [info.name for info in collections]
+
+        response = ToolResponse(
+            status="success",
+            summary=f"Found {len(collections)} collection(s).",
+            data={"collections": descriptors},
+            source_ids=source_ids,
         )
-
-    descriptors = [
-        CollectionDescriptor(
-            namespace=info.name.split("__")[0],
-            full_name=info.name,
-            chunk_count=info.size,
-            embed_model=info.embed_model,
-        ).model_dump()
-        for info in collections
-    ]
-    source_ids = [info.name for info in collections]
-
-    return ToolResponse(
-        status="success",
-        summary=f"Found {len(collections)} collection(s).",
-        data={"collections": descriptors},
-        source_ids=source_ids,
-    )
+        span.set_attribute("status", response.status)
+        span.set_attribute("source_ids", response.source_ids)
+        return response
 
 
 # ---------------------------------------------------------------------------
@@ -175,40 +208,52 @@ def handle_get_document_summary(
     inp: GetDocumentSummaryInput, deps: ServerDeps
 ) -> ToolResponse:
     """Return metadata and first few snippets for a specific document."""
-    collection = deps.store.make_collection_name(
-        namespace=inp.collection, embed_model=deps.embedder.model_name
-    )
-    chunks = deps.store.get_document_chunks(doc_id=inp.doc_id, collection=collection)
+    with deps.trace_writer.span("mcp.get_document_summary") as span:
+        span.set_attribute("collection", inp.collection)
+        span.set_attribute("doc_id", inp.doc_id)
 
-    if not chunks:
-        return ToolResponse(
-            status="warning",
-            summary=(
-                f"No chunks found for document '{inp.doc_id}'"
-                f" in collection '{inp.collection}'."
-            ),
-            source_ids=[],
+        collection = deps.store.make_collection_name(
+            namespace=inp.collection, embed_model=deps.embedder.model_name
+        )
+        chunks = deps.store.get_document_chunks(
+            doc_id=inp.doc_id, collection=collection
         )
 
-    first_snippets = [
-        c.content[:_SNIPPET_MAX_LEN] for c in chunks[:_MAX_FIRST_SNIPPETS]
-    ]
-    source_path: str = str(chunks[0].metadata.get("source_path", ""))
-    source_ids = [c.chunk_id for c in chunks]
+        if not chunks:
+            response = ToolResponse(
+                status="warning",
+                summary=(
+                    f"No chunks found for document '{inp.doc_id}'"
+                    f" in collection '{inp.collection}'."
+                ),
+                source_ids=[],
+            )
+            span.set_attribute("status", response.status)
+            span.set_attribute("source_ids", response.source_ids)
+            return response
 
-    summary_data = DocumentSummaryData(
-        doc_id=inp.doc_id,
-        source_path=source_path,
-        chunk_count=len(chunks),
-        first_snippets=first_snippets,
-    )
+        first_snippets = [
+            c.content[:_SNIPPET_MAX_LEN] for c in chunks[:_MAX_FIRST_SNIPPETS]
+        ]
+        source_path: str = str(chunks[0].metadata.get("source_path", ""))
+        source_ids = [c.chunk_id for c in chunks]
 
-    return ToolResponse(
-        status="success",
-        summary=f"Document '{inp.doc_id}' has {len(chunks)} chunk(s).",
-        data=summary_data.model_dump(),
-        source_ids=source_ids,
-    )
+        summary_data = DocumentSummaryData(
+            doc_id=inp.doc_id,
+            source_path=source_path,
+            chunk_count=len(chunks),
+            first_snippets=first_snippets,
+        )
+
+        response = ToolResponse(
+            status="success",
+            summary=f"Document '{inp.doc_id}' has {len(chunks)} chunk(s).",
+            data=summary_data.model_dump(),
+            source_ids=source_ids,
+        )
+        span.set_attribute("status", response.status)
+        span.set_attribute("source_ids", response.source_ids)
+        return response
 
 
 # ---------------------------------------------------------------------------

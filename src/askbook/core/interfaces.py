@@ -163,6 +163,10 @@ class TraceSpan:
     name: str
     attributes: dict[str, Any] = field(default_factory=dict)
 
+    def set_attribute(self, key: str, value: object) -> None:
+        """Store a tag on this span (no-op base implementation)."""
+        self.attributes[key] = value
+
 
 class PipelineContext(TypedDict, total=False):
     """Shared context threaded through pipeline nodes."""
