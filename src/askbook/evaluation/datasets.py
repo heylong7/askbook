@@ -48,6 +48,7 @@ class QAItem(BaseModel):
 
 class QADataset(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    # alias matches YAML's underscore-prefixed key "_meta"
     meta: QAItemMeta = Field(alias="_meta")
     items: list[QAItem]
 
@@ -66,11 +67,16 @@ class QADataset(BaseModel):
 
     @classmethod
     def from_yaml(cls, path: Path) -> QADataset:
+        from pydantic import ValidationError as _PydanticValidationError
+
         try:
             raw = yaml.safe_load(path.read_text(encoding="utf-8"))
         except yaml.YAMLError as exc:
             raise DatasetValidationError(f"invalid yaml at {path}: {exc}") from exc
-        return cls.model_validate(raw)
+        try:
+            return cls.model_validate(raw)
+        except _PydanticValidationError as exc:
+            raise DatasetValidationError(str(exc)) from exc
 
 
 __all__ = ["QAItem", "QAItemMeta", "QADataset", "DatasetValidationError"]
