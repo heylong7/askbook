@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 
-@dataclass
+@dataclass(frozen=True)
 class HealthCheck:
     """Ping each infrastructure component and report status.
 
@@ -76,7 +76,8 @@ class HealthCheck:
 
     def _probe_bm25(self) -> dict[str, str]:
         bm25_dir = self.bm25_dir
-        assert bm25_dir is not None  # guarded by caller
+        if bm25_dir is None:
+            raise RuntimeError("_probe_bm25 called with bm25_dir=None")
 
         if not bm25_dir.exists():
             return {"status": "down", "detail": "directory does not exist"}

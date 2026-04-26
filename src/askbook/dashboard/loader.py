@@ -21,6 +21,9 @@ def load_events(trace_dir: Path, days: int = 7) -> list[TraceEvent]:
     Files are expected to be named ``YYYY-MM-DD.jsonl``.  Any line that cannot
     be parsed is skipped with a ``logger.warning``.
     """
+    if not trace_dir.exists():
+        return []
+
     cutoff = (datetime.now(UTC) - timedelta(days=days - 1)).date()
     results: list[TraceEvent] = []
 
@@ -74,9 +77,15 @@ def aggregate_query_metrics(events: Sequence[TraceEvent]) -> dict[str, float]:
             "total_tokens": 0.0,
         }
 
+    def _safe_int(value: object) -> int:
+        try:
+            return int(value)  # type: ignore[call-overload, no-any-return]
+        except (TypeError, ValueError):
+            return 0
+
     total_tokens = float(
         sum(
-            int(ev.tags.get("tokens", 0))
+            _safe_int(ev.tags.get("tokens", 0))
             for ev in span_ends
             if ev.tags.get("tokens") is not None
         )
@@ -140,5 +149,8 @@ def trace_dir_mtime_signature(trace_dir: Path) -> tuple[float, ...]:
     Used as a ``@st.cache_data`` hash key so Streamlit re-runs when files
     change.
     """
+    if not trace_dir.exists():
+        return ()
+
     mtimes = sorted(p.stat().st_mtime for p in trace_dir.glob("*.jsonl") if p.is_file())
     return tuple(mtimes)
