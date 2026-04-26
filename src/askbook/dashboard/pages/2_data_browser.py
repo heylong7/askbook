@@ -15,7 +15,11 @@ if cfg is None:
 
     cfg = load_settings()
 
-store = ChromaVectorStore(path=str(Path(cfg.vectorstore.path).expanduser()))
+try:
+    store = ChromaVectorStore(path=str(Path(cfg.vectorstore.path).expanduser()))
+except Exception as exc:  # noqa: BLE001
+    st.error(f"无法初始化向量库: {exc}")
+    st.stop()
 
 st.title("数据浏览")
 
@@ -34,28 +38,12 @@ sel = st.selectbox("Collection", names)
 
 if sel:
     try:
-        col_obj = store._get_collection(sel)
-        result = col_obj.get(include=["metadatas"], limit=200)
-        metadatas: list[dict[str, object]] = result.get("metadatas") or []
-
-        docs: dict[str, dict[str, object]] = {}
-        for meta in metadatas:
-            if meta and "doc_id" in meta:
-                doc_id = str(meta["doc_id"])
-                if doc_id not in docs:
-                    docs[doc_id] = {
-                        "doc_id": doc_id,
-                        "source_path": str(meta.get("source_path", "")),
-                        "chunk_count": 0,
-                    }
-                prev = docs[doc_id]["chunk_count"]
-                docs[doc_id]["chunk_count"] = (prev if isinstance(prev, int) else 0) + 1
-
+        docs = store.list_documents(sel, limit=200)
         if docs:
-            st.dataframe(list(docs.values()))
-            chosen_doc = st.selectbox("选择文档", list(docs.keys()))
+            st.dataframe(docs)
+            chosen_doc = st.selectbox("选择文档", [d["doc_id"] for d in docs])
             if chosen_doc:
-                chunks_list = store.get_document_chunks(chosen_doc, sel)
+                chunks_list = store.get_document_chunks(str(chosen_doc), sel)
                 for chunk in chunks_list[:20]:
                     st.text(chunk.content[:200])
         else:

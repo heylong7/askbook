@@ -141,6 +141,30 @@ class ChromaVectorStore(VectorStoreABC):
             for cid, doc, meta in zip(ids, docs, metas, strict=False)
         ]
 
+    def list_documents(self, collection: str, limit: int = 200) -> list[dict[str, Any]]:
+        """Return one summary dict per unique doc_id in the collection.
+
+        Each dict contains: doc_id (str), source_path (str), chunk_count (int).
+        """
+        col = self._get_collection(collection)
+        result = col.get(include=["metadatas"], limit=limit)
+        metadatas: list[dict[str, Any]] = [
+            dict(m) if m is not None else {} for m in (result.get("metadatas") or [])
+        ]
+        docs: dict[str, dict[str, Any]] = {}
+        for meta in metadatas:
+            doc_id = str(meta.get("doc_id", ""))
+            if not doc_id:
+                continue
+            if doc_id not in docs:
+                docs[doc_id] = {
+                    "doc_id": doc_id,
+                    "source_path": str(meta.get("source_path", "")),
+                    "chunk_count": 0,
+                }
+            docs[doc_id]["chunk_count"] = docs[doc_id]["chunk_count"] + 1
+        return list(docs.values())
+
     def list_chunk_ids_by_doc(self, doc_id: str, collection: str) -> list[str]:
         col = self._get_collection(collection)
         res = col.get(where={"doc_id": doc_id}, include=[])
