@@ -1,2 +1,0 @@
-Plain text sample.
-Line two contains some content for the TXT loader smoke path.

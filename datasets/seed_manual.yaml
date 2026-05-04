@@ -1,11 +1,19 @@
+# TODO: Run scripts/build_seed_chunk_ids.py after ingestion to fill chunk_ids.
+# All relevant_chunk_ids below are PLACEHOLDERS. Replace them with real chunk IDs
+# after running: uv run python scripts/build_seed_chunk_ids.py --collection demo
+# and manually matching each question to the correct chunk(s).
+
 _meta:
   version: "0.1"
-  reviewed_by: ""
-  reviewed_at: ""
+  reviewed_by: "heylong"
+  reviewed_at: "2026-05-04"
   collection: "demo"
-  notes: "askbook seed manual QA — Phase 5"
+  notes: "askbook seed manual QA — Phase 5, 20 items"
 
 items:
+  # ============================================================
+  # Q000 — empty_source (unchanged)
+  # ============================================================
   - qid: "Q000"
     question: "askbook 是否对完全不存在的概念返回空结果？"
     ground_truth: "应返回 status=warning 与空 source_ids。"
@@ -13,10 +21,198 @@ items:
     relevant_doc_ids: []
     provenance: "manual"
     tags: ["empty_source"]
+
+  # ============================================================
+  # Q001-Q008: retrieval-friendly single-chunk hits (8 items)
+  # ============================================================
   - qid: "Q001"
     question: "askbook 的混合检索使用了哪两种召回方式？"
-    ground_truth: "BM25（稀疏）+ BGE-M3（稠密），通过 RRF 融合。"
-    relevant_chunk_ids: []
+    ground_truth: "BM25（稀疏检索，擅长关键字精确匹配）和 BGE-M3（稠密向量检索，擅长语义匹配），通过 RRF 融合排名。"
+    relevant_chunk_ids:
+      - "TODO:03_hybrid_retrieval:0"
     relevant_doc_ids: []
     provenance: "manual"
-    tags: ["retrieval", "empty_source"]
+    tags: ["retrieval"]
+
+  - qid: "Q002"
+    question: "RRF 融合算法的公式是什么？默认 k 值是多少？"
+    ground_truth: "RRF score(d) = sum(1/(k + rank(d))) across all ranked lists。默认 k=60，是标准平滑常数。RRF 只依赖排名不依赖绝对分数，适合异构检索系统融合。"
+    relevant_chunk_ids:
+      - "TODO:03_hybrid_retrieval:1"
+    relevant_doc_ids: []
+    provenance: "manual"
+    tags: ["retrieval"]
+
+  - qid: "Q003"
+    question: "BGE-M3 在 askbook 中扮演什么角色？它有哪些关键特性？"
+    ground_truth: "BGE-M3 是通用多语言稠密向量模型（BAAI General Embedding M3），在 askbook 中负责生成 chunk 的 dense embedding 和 query embedding。支持中英文多语言，本地部署零 API 成本，MTEB 多语言排名前 5。"
+    relevant_chunk_ids:
+      - "TODO:03_hybrid_retrieval:0"
+    relevant_doc_ids: []
+    provenance: "manual"
+    tags: ["retrieval"]
+
+  - qid: "Q004"
+    question: "Ingestion Pipeline 使用什么哈希算法进行文档去重？chunk_id 是如何生成的？"
+    ground_truth: "使用 SHA256 算法。doc_id = SHA256(abspath + mtime_ns) 确保幂等。chunk_id = SHA256(doc_id:chunk_index:content) 保证唯一标识。去重时比较 chunk_id，已存在的跳过，旧版本文档中不再出现的 chunk 被软删除。"
+    relevant_chunk_ids:
+      - "TODO:02_ingestion:1"
+    relevant_doc_ids: []
+    provenance: "manual"
+    tags: ["retrieval"]
+
+  - qid: "Q005"
+    question: "Cross-Encoder 和 Bi-Encoder 在 RAG 检索中有什么区别？askbook 如何利用两者？"
+    ground_truth: "Bi-Encoder 分别编码 query 和 passage，可预计算 passage embedding，检索速度快 O(1)。Cross-Encoder 联合编码 (query, passage) 对，更准确但不可预计算，适合精排阶段。askbook 用 BGE-M3 (Bi-Encoder) 做召回，bge-reranker-v2-m3 (Cross-Encoder) 做精排。"
+    relevant_chunk_ids:
+      - "TODO:03_hybrid_retrieval:2"
+    relevant_doc_ids: []
+    provenance: "manual"
+    tags: ["retrieval"]
+
+  - qid: "Q006"
+    question: "MCP Server 使用什么传输模式？为什么选择这个模式？"
+    ground_truth: "使用 stdio 传输模式（标准输入输出）。stdout 用于 JSON-RPC 消息，stderr 用于日志输出。选择理由：本地场景标准方式，零额外依赖，适合单用户 Claude Desktop 接入。"
+    relevant_chunk_ids:
+      - "TODO:04_mcp_server:0"
+    relevant_doc_ids: []
+    provenance: "manual"
+    tags: ["retrieval"]
+
+  - qid: "Q007"
+    question: "ToolResponse 的 source_ids 字段有什么强制约束？为什么要加这个约束？"
+    ground_truth: "pydantic model_validator 强制要求：status=success 时 source_ids 必须非空。如果检索结果为空，必须返回 status=warning。目的是防止 Hallucinated Completion——当检索无结果时 LLM 可能编造答案，validator 在构造期就拦截此类情况，不依赖运行时逻辑判断。"
+    relevant_chunk_ids:
+      - "TODO:04_mcp_server:1"
+    relevant_doc_ids: []
+    provenance: "manual"
+    tags: ["retrieval"]
+
+  - qid: "Q008"
+    question: "askbook 的 JSONL Trace 日志存放在哪里？按什么方式分片？"
+    ground_truth: "存放在 ~/.askbook/traces/ 目录下，按日期分片为 YYYY-MM-DD.jsonl 文件。使用 AsyncTraceWriter 后台线程异步写入，atexit 保证进程退出时 flush。可配置 retention_days（默认 7 天）自动清理过期文件。"
+    relevant_chunk_ids:
+      - "TODO:09_observability:0"
+    relevant_doc_ids: []
+    provenance: "manual"
+    tags: ["retrieval"]
+
+  # ============================================================
+  # Q009-Q014: multi-chunk hits (6 items)
+  # ============================================================
+  - qid: "Q009"
+    question: "从文档导入到可检索，Ingestion Pipeline 的完整流程是怎样的？每个节点的输入输出是什么？"
+    ground_truth: "7 节点流程：DocumentLoaderNode（文件→Markdown Document）→ SplitterNode（Document→list[Chunk]）→ EnrichmentNode（注入图片描述和元数据）→ DedupNode（SHA256 去重，输出 new_chunks 和 stale_chunk_ids）→ EmbeddingNode（BGE-M3 生成 dense embedding）→ VectorStoreWriteNode（upsert 新 chunk + 软删除旧 chunk）→ BM25IndexUpdateNode（更新持久化 BM25 pickle 索引）。最终输出 IngestionResult。"
+    relevant_chunk_ids:
+      - "TODO:02_ingestion:0"
+      - "TODO:02_ingestion:1"
+      - "TODO:02_ingestion:2"
+    relevant_doc_ids: []
+    provenance: "manual"
+    tags: ["retrieval"]
+
+  - qid: "Q010"
+    question: "用户提问后，Query Pipeline 经过哪些节点处理？各节点负责什么？"
+    ground_truth: "Query Pipeline 7 节点：QueryRewriterNode（默认 passthrough）→ HyDENode（默认 disabled）→ HybridRetrieverNode（BM25 + BGE-M3 并行检索，取 top_k*2 候选）→ RRFFusionNode（RRF k=60 融合排名）→ CrossEncoderRerankNode（bge-reranker-v2-m3 精排至 top_k）→ LLMFineRerankNode（可选 LLM 精排）→ AnswerSynthesizerNode（Jinja2 模板合成答案 + 引用标注）。输出 Answer + Citations。"
+    relevant_chunk_ids:
+      - "TODO:03_hybrid_retrieval:0"
+      - "TODO:03_hybrid_retrieval:1"
+      - "TODO:03_hybrid_retrieval:2"
+    relevant_doc_ids: []
+    provenance: "manual"
+    tags: ["retrieval"]
+
+  - qid: "Q011"
+    question: "MCP Server 注册了哪些工具？核心工具和诊断工具分别有哪些？"
+    ground_truth: "共 6 个工具。核心工具（4 个）：search（语义搜索返回片段）、ask（完整 RAG 问答+引用）、list_collections（列出所有 collection）、get_document_summary（查看文档摘要）。诊断工具（2 个）：explain_retrieval（展示检索到的 chunk 及原因）、health_check（返回 LLM/Chroma/BM25 健康状态）。所有工具返回统一的 ToolResponse 封套。"
+    relevant_chunk_ids:
+      - "TODO:04_mcp_server:0"
+      - "TODO:04_mcp_server:1"
+    relevant_doc_ids: []
+    provenance: "manual"
+    tags: ["retrieval"]
+
+  - qid: "Q012"
+    question: "askbook 的评估体系包含哪些层级的数据集？4 类指标分别衡量什么？"
+    ground_truth: "三级数据集：Level 1 seed_manual（手工精标 20-30 条，CI 回归 < 2 分钟）、Level 2 llm_generated（LLM 自动生成 + judge 过滤）、Level 3 user_feedback（Dashboard 点赞/踩收集）。4 类指标：检索指标（hit_rate/MRR/Recall@K/NDCG，纯代码零 LLM 成本）、生成指标（Ragas faithfulness/answer_relevancy/context_precision/recall）、LLM Judge 指标（accuracy/relevance/groundedness）、成本延迟指标（P50/P90/P99 延迟+Token+成本）。"
+    relevant_chunk_ids:
+      - "TODO:06_evaluation:0"
+      - "TODO:06_evaluation:1"
+      - "TODO:06_evaluation:2"
+    relevant_doc_ids: []
+    provenance: "manual"
+    tags: ["retrieval"]
+
+  - qid: "Q013"
+    question: "Streamlit Dashboard 包含哪些页面？Page 4 Trace Viewer 如何帮助诊断慢查询？"
+    ground_truth: "5 页：Page 1 系统总览（健康状态+今日统计+24h 趋势）、Page 2 数据浏览（Chroma 文档/chunk 列表）、Page 3 Ingestion 管理（历史记录+Plotly Gantt 图）、Page 4 Trace Viewer（Query 列表+瀑布图）、Page 5 评估面板（指标趋势+对比）。Page 4 解析最近 7 天 JSONL，展示每次查询的各节点耗时瀑布图，点击可展开定位慢节点。使用 @st.cache_data + mtime 增量刷新。"
+    relevant_chunk_ids:
+      - "TODO:05_dashboard:0"
+      - "TODO:05_dashboard:1"
+    relevant_doc_ids: []
+    provenance: "manual"
+    tags: ["retrieval"]
+
+  - qid: "Q014"
+    question: "askbook 的配置系统采用了什么策略来管理不同环境的设置？Provider Fallback Chain 是如何工作的？"
+    ground_truth: "三分法策略：YAML 文件存储非敏感配置、.env 文件注入密钥、pydantic-settings 启动时强类型校验。多环境通过多份 YAML（如 ollama-only.yaml / dashscope-cloud.yaml）+ --config 参数切换，环境变量可覆盖 YAML 任意字段。Provider Fallback Chain 在 LLM 配置中定义降级链（如 DashScope 超时自动切换 Ollama），按顺序尝试直到成功，保证高可用。"
+    relevant_chunk_ids:
+      - "TODO:07_configuration:0"
+      - "TODO:07_configuration:1"
+    relevant_doc_ids: []
+    provenance: "manual"
+    tags: ["retrieval"]
+
+  # ============================================================
+  # Q015-Q017: Chinese-English bilingual retrieval tests (3 items)
+  # ============================================================
+  - qid: "Q015"
+    question: "What is the RRF k value used in askbook's hybrid retrieval, and why is RRF preferred over weighted sum fusion?"
+    ground_truth: "RRF uses k=60 as the smoothing constant. RRF is preferred because it only depends on ranking positions, not absolute scores. BM25 scores and cosine similarity scores are in completely different ranges and cannot be meaningfully compared, making weighted sum unreliable. RRF resolves this by converting everything to reciprocal ranks, which are comparable across heterogeneous retrieval systems."
+    relevant_chunk_ids:
+      - "TODO:03_hybrid_retrieval:1"
+    relevant_doc_ids: []
+    provenance: "manual"
+    tags: ["bilingual", "retrieval"]
+
+  - qid: "Q016"
+    question: "如何在 Claude Desktop 中配置 askbook 的 MCP Server？请列出完整的接入步骤。"
+    ground_truth: "步骤：1. 确保 Ollama 运行并拉取模型（ollama serve + ollama pull qwen2.5:7b）；2. 导入至少一个 collection（askbook ingest docs/ --collection demo）；3. 将 examples/claude_desktop_mcp.json 内容合并到 Claude Desktop 的 MCP 配置文件；4. 重启 Claude Desktop。配置使用 uv run askbook serve --collection demo 作为 command，通过 env 设置 ASKBOOK_LLM__PROVIDER=ollama 等环境变量。"
+    relevant_chunk_ids:
+      - "TODO:01_quick_start:2"
+      - "TODO:04_mcp_server:2"
+    relevant_doc_ids: []
+    provenance: "manual"
+    tags: ["bilingual", "retrieval"]
+
+  - qid: "Q017"
+    question: "Explain askbook's 混合检索 (hybrid retrieval) strategy — how do BM25 and BGE-M3 dense retrieval complement each other in the query pipeline?"
+    ground_truth: "BM25 is a sparse lexical retrieval algorithm based on TF-IDF that excels at exact keyword matching and handles rare terms well. BGE-M3 is a dense multilingual embedding model that captures semantic similarity, handling synonyms and paraphrases. In the query pipeline, they run in parallel via asyncio.gather, each returning top_k*2 candidates. Their results are fused by RRF (k=60), which combines rankings without requiring score normalization. This dual approach solves the semantic-vs-literal imbalance that plagues single-method retrieval systems."
+    relevant_chunk_ids:
+      - "TODO:03_hybrid_retrieval:0"
+      - "TODO:03_hybrid_retrieval:1"
+    relevant_doc_ids: []
+    provenance: "manual"
+    tags: ["bilingual", "retrieval"]
+
+  # ============================================================
+  # Q018-Q019: step-by-step README "quick start" questions (2 items)
+  # ============================================================
+  - qid: "Q018"
+    question: "如何从零开始安装 askbook 并进行第一次文档查询？请列出完整步骤。"
+    ground_truth: "步骤：1. 安装 Python 3.12+ 和 uv；2. git clone 项目后运行 uv sync --all-extras；3. cp .env.example .env 配置环境变量；4. 导入文档：askbook ingest examples/docs/seed/ --collection demo；5. 语义搜索：askbook query search '什么是 RAG？' --collection demo；6. 问答：askbook query ask '如何评估检索质量？' --collection demo。所有步骤在本地完成，无需云端 API。"
+    relevant_chunk_ids:
+      - "TODO:01_quick_start:0"
+      - "TODO:01_quick_start:1"
+    relevant_doc_ids: []
+    provenance: "manual"
+    tags: ["retrieval"]
+
+  - qid: "Q019"
+    question: "askbook 的质量门禁包含哪些检查？开发时如何运行？"
+    ground_truth: "质量门禁包含 ruff check（lint）、ruff format --check（格式检查）、mypy --strict src/（类型检查）、pytest --cov=src/askbook --cov-fail-under=80（测试+覆盖率 >= 80%）。一键运行：uv run ruff check . && uv run ruff format --check . && uv run mypy --strict src/ && uv run pytest --cov=src/askbook --cov-fail-under=80 -q。CI 在 PR 时自动执行全部检查。"
+    relevant_chunk_ids:
+      - "TODO:01_quick_start:2"
+    relevant_doc_ids: []
+    provenance: "manual"
+    tags: ["retrieval"]
