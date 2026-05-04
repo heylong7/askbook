@@ -6,7 +6,7 @@ import uuid
 from dataclasses import dataclass
 
 from askbook.core.interfaces import PipelineContext
-from askbook.core.models import Answer
+from askbook.core.models import Answer, RetrievalResult
 from askbook.observability.trace import use_trace_id
 from askbook.query.fusion import RRFFusionNode
 from askbook.query.hyde import HyDENode
@@ -51,6 +51,35 @@ class QueryPipeline:
             ):
                 ctx = node(ctx)
         return ctx["answer"]
+
+    def run_retrieve_only(
+        self, *, query: str, collection: str
+    ) -> list[RetrievalResult]:
+        """Short-circuit: run retrieval chain but stop before synthesizer.
+
+        Returns the reranked retrieval results (after CE rerank), skipping
+        LLM fine-rerank and synthesizer. Used by evaluation pipeline.
+        """
+        trace_id = uuid.uuid4().hex
+        ctx: PipelineContext = {
+            "query": query,
+            "collection": collection,
+            "pipeline_trace_id": trace_id,
+        }
+        with use_trace_id(trace_id):
+            for node in (
+                self.rewriter,
+                self.hyde,
+                self.retriever_node,
+                self.fusion_node,
+                self.ce_rerank_node,
+            ):
+                ctx = node(ctx)
+        results = ctx.get("retrieval_results", [])
+        assert all(isinstance(r, RetrievalResult) for r in results), (
+            "All items in retrieval_results must be RetrievalResult instances"
+        )
+        return results
 
 
 __all__ = ["QueryPipeline"]
