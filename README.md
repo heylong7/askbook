@@ -138,3 +138,20 @@ uv run askbook dashboard --port 9000
 ### Harness 30.1.3 说明
 
 `QuerySpan.original_query` 是必填字段，由 `QueryRewriterNode` 在 passthrough 和改写两种模式下均保证写入，为 Phase 6 Rewrite Diff 视图提供数据支撑。
+
+## Evaluation (v0.1)
+
+`askbook` ships with a 20-item human-curated QA set at `datasets/seed_manual.yaml`
+and four code-only retrieval metrics (`hit_rate`, `mrr`, `recall@k`, `ndcg@k`).
+
+Run the suite once your sample collection is ingested:
+
+```bash
+uv run askbook ingest examples/docs/seed --collection demo
+uv run askbook eval --dataset datasets/seed_manual.yaml --collection demo --k 5
+```
+
+Each run writes `eval_runs/<timestamp>.json`. To establish a new baseline (only
+when you intentionally improved retrieval), pass `--update-baseline
+tests/golden/baselines/v0.1_scores.json`. CI runs `pytest -m golden` and fails
+when any metric drops more than 0.05 below the recorded baseline.

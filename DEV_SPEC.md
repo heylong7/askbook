@@ -75,6 +75,7 @@
 | 2.4 | 2026-04-23 | Phase 1 全部完成（Task 1.9–1.11 ✅）；Phase 2 Query MVP 启动：Task 2.1（Providers 基础设施）已完成——httpx/jinja2/respx 依赖、BaseLLMProvider/RetryMixin/TokenCountingMixin、OllamaQwenProvider、StubLLMProvider、registry.build_llm() 全部落地，22 个单元测试全绿；Task 2.2–2.9（RRF / HybridRetriever / Reranker / Rewriter / Synthesizer / Pipeline / CLI / 质量闸）待续 |
 | 2.5 | 2026-04-24 | Phase 2（Query MVP）全部完成：RRF 融合 / HybridRetriever（BM25+Dense 并行）/ StubReranker+BGE-v2-m3（懒加载）/ CrossEncoderRerankNode+LLMFineRerankNode / QueryRewriterNode+HyDENode（passthrough）/ AnswerSynthesizerNode（jinja2 prompt）/ QueryPipeline 编排器 / `askbook query` CLI 全部落地；150 个测试全绿（83% 覆盖率）；Harness 30.1.1 端到端验证（无 raw_text）+ 30.1.iii 节点幂等断言（7 项）均通过 |
 | 2.6 | 2026-04-25 | Phase 3（MCP Server）完成：4 核心工具 search/ask/list_collections/get_document_summary + ToolResponse 封套（Harness 30.1.2 source_ids 非空 validator）+ stdio 模式 + Claude Desktop 接入样本；Harness 工具数锁定断言上线；BM25 多 collection lazy-load 推迟到 Phase 6 |
+| 2.7 | 2026-05-04 | Phase 5（Evaluation v0.1）完成：seed_manual 20 条 + 检索四指标（hit_rate/MRR/Recall@K/NDCG）+ RetrievalEvalRunner + askbook eval CLI + Golden 集 CI 回归门禁（drop ≤ 0.05）；首次基线 v0.1_scores.json 提交 |
 
 ---
 
@@ -1749,7 +1750,11 @@ class CostLatencyEvaluator(BaseEvaluator):
 
 ### 章末五件套
 
-**本章产出：** `evaluation/{datasets,runner,cli}.py` + `metrics/` 4 个模块 + `tests/golden/datasets/qa_mini.jsonl`
+**本章产出：**
+- `evaluation/{datasets,runner,cli}.py` ✅
+- `metrics/retrieval`（hit_rate / MRR / Recall@K / NDCG）✅
+- `tests/golden/` 回归测试 + `v0.1_scores.json` 基线 ✅
+- `datasets/seed_manual.yaml`（20 条人工标注）✅
 
 **面试高频题：**
 1. faithfulness 和 answer_relevancy 的区别？答题要点：faithfulness 衡量回答能否被检索到的 context 支撑（防幻觉）；answer_relevancy 衡量回答是否真正回答了问题（防扯远）。两者都高才是高质量 RAG。

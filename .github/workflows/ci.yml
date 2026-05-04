@@ -36,6 +36,17 @@ jobs:
       - name: Pytest + coverage
         run: uv run pytest --cov --cov-report=term-missing --cov-fail-under=80
 
+      - name: Pytest (golden — informational on fork PRs)
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          ASKBOOK_GOLDEN_ALLOW_SKIP: "1"
+        run: |
+          if [ -d "examples/docs/seed" ] && [ -f "datasets/seed_manual.yaml" ]; then
+            uv run pytest -m golden -v
+          else
+            echo "::warning::seed_manual fixtures missing — skipping golden tests"
+          fi
+
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@v4
