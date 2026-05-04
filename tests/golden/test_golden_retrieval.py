@@ -8,6 +8,7 @@ Marked @pytest.mark.golden so it can be selected/excluded via -m.
 
 from __future__ import annotations
 
+import contextlib
 import json
 from pathlib import Path
 
@@ -29,14 +30,15 @@ def baseline() -> dict[str, float]:
 
 @pytest.fixture(scope="module")
 def pipeline_and_collection():
-    from askbook.evaluation.cli import _build_pipeline
-
     try:
+        from askbook.evaluation.cli import _build_pipeline
+
         pipeline, full, trace = _build_pipeline(config_path=None, collection="demo")
     except Exception as exc:
         pytest.skip(f"cannot build real pipeline (Ollama/ChromaDB unavailable?): {exc}")
     yield pipeline, full
-    trace.flush()
+    with contextlib.suppress(Exception):
+        trace.flush()
 
 
 @pytest.mark.golden
@@ -56,6 +58,8 @@ def test_retrieval_no_regression(pipeline_and_collection, baseline):
 @pytest.mark.golden
 def test_empty_source_qid_returns_zero_metrics(pipeline_and_collection):
     """Q000 with relevant=[] must produce all-zero metrics (no false positives)."""
+    if not DATASET_PATH.exists():
+        pytest.skip("seed_manual.yaml missing")
     pipeline, full = pipeline_and_collection
     ds = QADataset.from_yaml(DATASET_PATH)
     q000 = next(it for it in ds.items if it.qid == "Q000")
