@@ -116,13 +116,14 @@ disallow_untyped_decorators = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers --strict-config"
+addopts = "-ra --strict-markers --strict-config -m 'not golden'"
 asyncio_mode = "auto"
 markers = [
   "requires_ollama: integration test that needs a local Ollama daemon",
   "requires_dashscope: integration test that needs DashScope API key",
   "requires_bge_m3: integration test that downloads BGE-M3 weights",
   "slow: long-running benchmarks skipped in regular CI (run with -m slow)",
+  "golden: golden-set regression tests (require ingested demo collection)",
 ]
 
 [tool.coverage.run]
