@@ -89,10 +89,37 @@ def query(
 
 @app.command(name="eval")
 def eval_(
-    dataset: Annotated[str, typer.Option(help="Path to QA dataset YAML.")] = "",
+    dataset: Annotated[
+        str, typer.Option("--dataset", help="Path to QA dataset YAML.")
+    ] = "datasets/seed_manual.yaml",
+    collection: Annotated[str, typer.Option(help="Collection namespace.")] = "demo",
+    k: Annotated[int, typer.Option(help="Top-k cutoff for metrics.")] = 5,
+    output: Annotated[
+        str, typer.Option("--output", help="Where to write the JSON report.")
+    ] = "",
+    update_baseline: Annotated[
+        str,
+        typer.Option("--update-baseline", help="Path to baseline JSON to overwrite."),
+    ] = "",
+    config: Annotated[
+        str, typer.Option("--config", help="Path to YAML config file.")
+    ] = "",
 ) -> None:
-    """Run the evaluation suite (Phase 5)."""
-    raise typer.Exit(code=0)
+    """Run the retrieval-evaluation suite (Phase 5)."""
+    from pathlib import Path as _Path
+
+    from askbook.evaluation.cli import run_eval
+
+    raise typer.Exit(
+        run_eval(
+            dataset=_Path(dataset),
+            collection=collection,
+            k=k,
+            output=_Path(output) if output else None,
+            update_baseline=_Path(update_baseline) if update_baseline else None,
+            config_path=_Path(config) if config else None,
+        )
+    )
 
 
 @app.command()
