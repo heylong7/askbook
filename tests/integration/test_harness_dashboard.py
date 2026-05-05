@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
@@ -70,9 +71,25 @@ class TestDashboardPage5WithoutData:
 
         import importlib
 
-        # The module-level code runs on first import — this should not crash.
-        importlib.import_module("askbook.dashboard.pages.5_evaluation")
-        # No need for reload — mocks were applied before the first import.
+        module_name = "askbook.dashboard.pages.5_evaluation"
+        # Clear the cached module so monkeypatches take effect on import.
+        sys.modules.pop(module_name, None)
+
+        # Mock streamlit functions so the module-level code does not
+        # require a running Streamlit runtime.
+        monkeypatch.setattr("streamlit.title", MagicMock())
+        monkeypatch.setattr("streamlit.header", MagicMock())
+        monkeypatch.setattr(
+            "streamlit.columns",
+            lambda n: [MagicMock() for _ in range(n)],
+        )
+        monkeypatch.setattr("streamlit.metric", MagicMock())
+        monkeypatch.setattr("streamlit.expander", lambda title: MagicMock())
+        monkeypatch.setattr("streamlit.markdown", MagicMock())
+        monkeypatch.setattr("streamlit.info", MagicMock())
+
+        # The module-level code runs on import — this should not crash.
+        importlib.import_module(module_name)
 
 
 class TestDashboardPage5WithEvents:
@@ -81,7 +98,8 @@ class TestDashboardPage5WithEvents:
     def test_shows_harness_metrics_from_events(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """When load_events returns canned events, the module should not crash."""
+        """When load_events returns canned events, st.metric should be called with
+        expected values — 8/12 success (66.7%), below the 95 % threshold."""
         mock_settings = MagicMock()
         mock_settings.observability.trace_dir = "/fake/traces"
 
@@ -92,7 +110,7 @@ class TestDashboardPage5WithEvents:
         monkeypatch.setattr("pathlib.Path.exists", lambda self: False)
         monkeypatch.setattr("pathlib.Path.glob", lambda self, pat: [])
 
-        # Canned events: 8 successful MCP calls out of 10, 2 retries
+        # Canned events: 8 successful MCP calls out of 12, 2 retries
         canned = [
             _make_event("span_end", "ask", status="success", estimated_cost_cny=0.02),
             _make_event("span_end", "search", status="success"),
@@ -114,12 +132,35 @@ class TestDashboardPage5WithEvents:
 
         import importlib
 
-        importlib.import_module("askbook.dashboard.pages.5_evaluation")
+        module_name = "askbook.dashboard.pages.5_evaluation"
+        sys.modules.pop(module_name, None)
+
+        monkeypatch.setattr("streamlit.title", MagicMock())
+        monkeypatch.setattr("streamlit.header", MagicMock())
+        monkeypatch.setattr(
+            "streamlit.columns",
+            lambda n: [MagicMock() for _ in range(n)],
+        )
+        mock_metric = MagicMock()
+        monkeypatch.setattr("streamlit.metric", mock_metric)
+        monkeypatch.setattr("streamlit.expander", lambda title: MagicMock())
+        monkeypatch.setattr("streamlit.markdown", MagicMock())
+        monkeypatch.setattr("streamlit.info", MagicMock())
+
+        importlib.import_module(module_name)
+
+        # 8/12 = 66.7%, below the 95% threshold → delta is negative, color inversed
+        mock_metric.assert_any_call(
+            "Completion Rate",
+            "66.7%",
+            delta="-28.3%",
+            delta_color="inverse",
+        )
 
     def test_threshold_delta_when_below_target(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Module should not crash when completion_rate is below 0.95."""
+        """When completion_rate is 40%, delta should reflect how far below 95%."""
         mock_settings = MagicMock()
         mock_settings.observability.trace_dir = "/fake/traces"
 
@@ -142,4 +183,27 @@ class TestDashboardPage5WithEvents:
 
         import importlib
 
-        importlib.import_module("askbook.dashboard.pages.5_evaluation")
+        module_name = "askbook.dashboard.pages.5_evaluation"
+        sys.modules.pop(module_name, None)
+
+        monkeypatch.setattr("streamlit.title", MagicMock())
+        monkeypatch.setattr("streamlit.header", MagicMock())
+        monkeypatch.setattr(
+            "streamlit.columns",
+            lambda n: [MagicMock() for _ in range(n)],
+        )
+        mock_metric = MagicMock()
+        monkeypatch.setattr("streamlit.metric", mock_metric)
+        monkeypatch.setattr("streamlit.expander", lambda title: MagicMock())
+        monkeypatch.setattr("streamlit.markdown", MagicMock())
+        monkeypatch.setattr("streamlit.info", MagicMock())
+
+        importlib.import_module(module_name)
+
+        # 4/10 = 40%, well below 95% → delta is -55.0 %
+        mock_metric.assert_any_call(
+            "Completion Rate",
+            "40.0%",
+            delta="-55.0%",
+            delta_color="inverse",
+        )

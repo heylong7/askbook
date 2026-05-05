@@ -102,7 +102,6 @@ with st.expander("目标阈值"):
 # --- Retrieval metrics section ---
 st.header("检索评估")
 if latest_eval:
-    report = json.loads(latest_eval[0].read_text(encoding="utf-8"))
     agg = report.get("aggregate", {})
     col1, col2, col3 = st.columns(3)
     with col1:

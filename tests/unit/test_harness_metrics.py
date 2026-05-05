@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from askbook.evaluation.metrics.harness_metrics import (
     completion_rate,
     compute_harness_metrics,
@@ -46,7 +48,7 @@ class TestPassAt1:
 
 class TestCostPerTask:
     def test_typical(self) -> None:
-        assert cost_per_task(0.03, 3) == 0.01
+        assert cost_per_task(0.03, 3) == pytest.approx(0.01)
 
     def test_zero_tasks(self) -> None:
         assert cost_per_task(0.0, 0) == 0.0
