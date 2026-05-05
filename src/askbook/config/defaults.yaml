@@ -33,7 +33,7 @@ query:
   top_k: 10
   rerank_top_k: 5
   rrf_k: 60
-  enable_rewrite: false
+  enable_rewrite: true
   enable_hyde: false
   enable_llm_rerank: false
 
