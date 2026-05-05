@@ -82,6 +82,11 @@ class FallbackProvider:
         """How many providers were skipped in the last ``complete()`` call."""
         return self._fallback_count
 
+    @property
+    def retries_per_task(self) -> int:
+        """Alias for ``fallback_count`` — matches trace attribute convention."""
+        return self._fallback_count
+
     def complete(
         self,
         prompt: str,

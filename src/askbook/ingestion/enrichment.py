@@ -16,6 +16,7 @@ from askbook.core.interfaces import (
     BasePipelineNode,
     LLMProviderProtocol,
     PipelineContext,
+    TraceSpan,
     TraceWriterProtocol,
 )
 from askbook.core.models import Chunk
@@ -66,6 +67,18 @@ class LLMEnrichmentNode(BasePipelineNode):
     # ------------------------------------------------------------------
     # PipelineNode interface
     # ------------------------------------------------------------------
+
+    def after_run(self, context: PipelineContext, span: TraceSpan) -> None:
+        """Write fallback-chain observability to the trace span."""
+        if self._llm is not None and hasattr(self._llm, "fallback_count"):
+            span.set_attribute(
+                "llm.fallback_count",
+                getattr(self._llm, "fallback_count", 0),
+            )
+            span.set_attribute(
+                "llm.retries_per_task",
+                getattr(self._llm, "retries_per_task", 0),
+            )
 
     def run(self, context: PipelineContext) -> PipelineContext:
         chunks = list(context.get("chunks", []))
