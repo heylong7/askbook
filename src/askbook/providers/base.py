@@ -6,17 +6,10 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
+from askbook.core.exceptions import ProviderTimeoutError
 from askbook.core.models import LLMResponse, TokenUsage
 
 T = TypeVar("T")
-
-
-class ProviderTimeoutError(Exception):
-    """Raised when a provider call times out."""
-
-    def __init__(self, provider: str, detail: str = "") -> None:
-        super().__init__(f"[{provider}] timeout: {detail}")
-        self.provider = provider
 
 
 class RetryMixin:
@@ -68,16 +61,26 @@ class BaseLLMProvider(RetryMixin, TokenCountingMixin):
 
 
 class FallbackProvider:
-    """Tries providers in order; raises ProviderFallbackExhaustedError if all fail."""
+    """Tries providers in order; raises ProviderFallbackExhaustedError if all fail.
+
+    Callers can inspect ``fallback_count`` after ``complete()`` returns
+    to observe how many times the chain fell back to the next provider.
+    """
 
     def __init__(self, providers: list[BaseLLMProvider]) -> None:
         if not providers:
             raise ValueError("FallbackProvider requires at least one provider")
         self._providers = providers
+        self._fallback_count = 0
 
     @property
     def provider_name(self) -> str:
         return "fallback"
+
+    @property
+    def fallback_count(self) -> int:
+        """How many providers were skipped in the last ``complete()`` call."""
+        return self._fallback_count
 
     def complete(
         self,
@@ -88,13 +91,16 @@ class FallbackProvider:
     ) -> LLMResponse:
         from askbook.core.exceptions import ProviderFallbackExhaustedError
 
+        self._fallback_count = 0
         last_error: Exception | None = None
-        for provider in self._providers:
+        for i, provider in enumerate(self._providers):
             try:
                 return provider.complete(
                     prompt, temperature=temperature, max_tokens=max_tokens
                 )
             except Exception as exc:
+                if i < len(self._providers) - 1:
+                    self._fallback_count += 1
                 last_error = exc
                 continue
         raise ProviderFallbackExhaustedError(

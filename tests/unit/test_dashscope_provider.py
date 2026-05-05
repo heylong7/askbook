@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import builtins
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -26,6 +27,29 @@ def test_init_explicit_key_overrides_env(monkeypatch: pytest.MonkeyPatch) -> Non
     assert provider._api_key == "explicit-key"  # pragma: allowlist secret
 
 
+def test_complete_success() -> None:
+    """complete() returns a well-formed LLMResponse on a successful DashScope call."""
+    provider = DashScopeQwenProvider(api_key="test-key")
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.message = ""
+    mock_choice = MagicMock()
+    mock_choice.message.content = "Qwen says hello"
+    mock_response.output = MagicMock()
+    mock_response.output.choices = [mock_choice]
+
+    with patch("dashscope.Generation") as mock_gen:
+        mock_gen.call.return_value = mock_response
+        result = provider.complete("Hi Qwen")
+
+    assert result.content == "Qwen says hello"
+    assert result.model == "qwen-plus"
+    assert result.provider == "dashscope"
+    assert result.usage.total_tokens > 0
+    assert result.latency_ms >= 0.0
+
+
 def test_complete_raises_without_dashscope_sdk() -> None:
     """complete() raises ProviderTimeoutError when dashscope SDK not installed."""
     provider = DashScopeQwenProvider(api_key="test-key")
@@ -39,7 +63,7 @@ def test_complete_raises_without_dashscope_sdk() -> None:
 
     builtins.__import__ = mock_import  # type: ignore[assignment]
     try:
-        from askbook.providers.base import ProviderTimeoutError
+        from askbook.core.exceptions import ProviderTimeoutError
 
         with pytest.raises(ProviderTimeoutError, match="dashscope SDK not installed"):
             provider.complete("test prompt")

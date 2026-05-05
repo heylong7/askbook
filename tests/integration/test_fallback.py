@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+
 import pytest
 
 from askbook.core.exceptions import ProviderFallbackExhaustedError
@@ -55,6 +57,54 @@ def test_fallback_chain_empty_providers() -> None:
 def test_fallback_provider_name() -> None:
     fb = FallbackProvider([StubLLMProvider()])
     assert fb.provider_name == "fallback"
+
+
+def test_fallback_count_incremented() -> None:
+    """fallback_count reflects number of providers skipped before
+    a successful (or exhausted) call."""
+    # One failure before success => fallback_count == 1
+    fb = FallbackProvider(
+        [FailingProvider("bad1"), FailingProvider("bad2"), StubLLMProvider(model="ok")]
+    )
+    fb.complete("test")
+    assert fb.fallback_count == 2
+
+    # All fail => fallback_count still reflects each fallback attempt
+    fb2 = FallbackProvider([FailingProvider("x"), FailingProvider("y")])
+    with contextlib.suppress(ProviderFallbackExhaustedError):
+        fb2.complete("test")
+    assert fb2.fallback_count == 1  # 2 providers, 1 fallback after first fails
+
+    # Success on first try => 0
+    fb3 = FallbackProvider([StubLLMProvider(model="direct")])
+    fb3.complete("test")
+    assert fb3.fallback_count == 0
+
+
+@pytest.mark.requires_dashscope
+def test_dashscope_primary_falls_back_to_stub(monkeypatch: pytest.MonkeyPatch) -> None:
+    """DashScopeQwenProvider times out -> FallbackProvider uses StubLLMProvider.
+
+    Uses monkeypatch to simulate a ProviderTimeoutError from the real
+    DashScopeQwenProvider, then verifies the stub fallback returns a result.
+    """
+    from askbook.providers.dashscope_qwen import DashScopeQwenProvider
+
+    primary = DashScopeQwenProvider(api_key="test-ds-key")
+    # Simulate DashScope timeout
+    monkeypatch.setattr(
+        primary,
+        "complete",
+        lambda *a, **kw: (_ for _ in ()).throw(
+            ProviderTimeoutError("dashscope", "simulated gateway timeout")
+        ),
+    )
+    fallback = StubLLMProvider(canned_response="fallback-answer", model="fallback")
+    fb = FallbackProvider([primary, fallback])
+
+    result = fb.complete("test prompt")
+    assert result.content == "fallback-answer"
+    assert fb.fallback_count == 1
 
 
 def test_registry_build_fallback_chain() -> None:
