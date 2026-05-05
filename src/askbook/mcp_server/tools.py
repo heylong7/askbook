@@ -23,12 +23,16 @@ from askbook.mcp_server.contracts import (
     AskData,
     AskInput,
     CollectionDescriptor,
+    CollectionStatsData,
+    CollectionStatsInput,
     DocumentSummaryData,
     GetDocumentSummaryInput,
     ListCollectionsInput,
     SearchHit,
     SearchInput,
     ToolResponse,
+    TraceLookupData,
+    TraceLookupInput,
 )
 from askbook.observability.null_trace import NullTraceWriter
 from askbook.query.pipeline import QueryPipeline
@@ -257,6 +261,77 @@ def handle_get_document_summary(
 
 
 # ---------------------------------------------------------------------------
+# handle_trace_lookup
+# ---------------------------------------------------------------------------
+
+
+def handle_trace_lookup(inp: TraceLookupInput, deps: ServerDeps) -> ToolResponse:
+    """Look up trace events by trace_id or return recent events."""
+    from pathlib import Path
+
+    from askbook.dashboard.loader import load_events
+
+    trace_dir = Path.home() / ".askbook" / "traces"
+    events = load_events(trace_dir, days=inp.days)
+
+    if inp.trace_id:
+        events = [e for e in events if e.trace_id == inp.trace_id]
+
+    matches = events[: inp.limit]
+    data = TraceLookupData(
+        events=[e.model_dump(mode="json") for e in matches],
+        total_count=len(matches),
+    )
+
+    if not matches:
+        return ToolResponse(
+            status="warning",
+            summary=(
+                f"未找到匹配的 Trace 事件"
+                f"（trace_id={inp.trace_id or 'any'}, days={inp.days}）"
+            ),
+            source_ids=[],
+            data=data.model_dump(),
+        )
+
+    return ToolResponse(
+        status="success",
+        summary=f"找到 {len(matches)} 条 Trace 事件（筛选自 {len(events)} 条）",
+        data=data.model_dump(),
+        source_ids=[e.trace_id for e in matches],
+    )
+
+
+# ---------------------------------------------------------------------------
+# handle_collection_stats
+# ---------------------------------------------------------------------------
+
+
+def handle_collection_stats(
+    inp: CollectionStatsInput, deps: ServerDeps
+) -> ToolResponse:
+    """Return detailed statistics for a collection."""
+    full_name = deps.store.make_collection_name(
+        namespace=inp.collection, embed_model=deps.embedder.model_name
+    )
+    stats = deps.store.get_collection_stats(full_name)
+
+    return ToolResponse(
+        status="success",
+        summary=f"Collection '{inp.collection}': {stats.chunk_count} chunks",
+        data=CollectionStatsData(
+            namespace=inp.collection,
+            full_name=full_name,
+            chunk_count=stats.chunk_count,
+            embed_model=deps.embedder.model_name,
+            document_count=getattr(stats, "doc_count", 0),
+            disk_size_bytes=getattr(stats, "disk_size_bytes", 0),
+        ).model_dump(),
+        source_ids=[full_name],
+    )
+
+
+# ---------------------------------------------------------------------------
 # TOOL_REGISTRY
 # ---------------------------------------------------------------------------
 
@@ -267,6 +342,8 @@ TOOL_REGISTRY: dict[
     "ask": (AskInput, handle_ask),
     "list_collections": (ListCollectionsInput, handle_list_collections),
     "get_document_summary": (GetDocumentSummaryInput, handle_get_document_summary),
+    "trace_lookup": (TraceLookupInput, handle_trace_lookup),
+    "collection_stats": (CollectionStatsInput, handle_collection_stats),
 }
 
 
@@ -276,5 +353,7 @@ __all__ = [
     "handle_ask",
     "handle_list_collections",
     "handle_get_document_summary",
+    "handle_trace_lookup",
+    "handle_collection_stats",
     "TOOL_REGISTRY",
 ]

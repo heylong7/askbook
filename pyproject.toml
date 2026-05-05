@@ -113,6 +113,10 @@ module = ["ragas", "ragas.*", "datasets"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+module = ["pandas", "pandas.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = ["streamlit", "streamlit.*", "plotly", "plotly.*"]
 ignore_missing_imports = true
 

@@ -76,6 +76,30 @@ class DocumentSummaryData(BaseModel):
     first_snippets: list[str]
 
 
+class TraceLookupInput(BaseModel):
+    trace_id: str | None = None
+    limit: int = Field(default=20, ge=1, le=100)
+    days: int = Field(default=7, ge=1, le=30)
+
+
+class TraceLookupData(BaseModel):
+    events: list[dict[str, Any]]
+    total_count: int
+
+
+class CollectionStatsInput(BaseModel):
+    collection: str = "default"
+
+
+class CollectionStatsData(BaseModel):
+    namespace: str
+    full_name: str
+    chunk_count: int
+    embed_model: str
+    document_count: int
+    disk_size_bytes: int
+
+
 __all__ = [
     "ToolResponse",
     "SearchInput",
@@ -86,4 +110,8 @@ __all__ = [
     "CollectionDescriptor",
     "GetDocumentSummaryInput",
     "DocumentSummaryData",
+    "TraceLookupInput",
+    "TraceLookupData",
+    "CollectionStatsInput",
+    "CollectionStatsData",
 ]

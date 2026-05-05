@@ -12,6 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from askbook.config import load_settings
+from askbook.config.settings import Settings
 from askbook.core.registry import ServiceRegistry
 from askbook.mcp_server.tools import ServerDeps
 from askbook.observability.registry import build_trace_writer
@@ -24,6 +25,15 @@ from askbook.query.rewriter import QueryRewriterNode
 from askbook.query.synthesizer import AnswerSynthesizerNode
 from askbook.vectorstores.bm25_index import BM25PersistentIndex
 
+_bm25_cache: dict[str, BM25PersistentIndex] = {}
+
+
+def _get_or_create_bm25(cfg: Settings, collection: str) -> BM25PersistentIndex:
+    bm25_path = Path(cfg.data_dir).expanduser() / "bm25" / f"{collection}.pkl"
+    if collection not in _bm25_cache:
+        _bm25_cache[collection] = BM25PersistentIndex(path=bm25_path)
+    return _bm25_cache[collection]
+
 
 def build_server_deps(
     *,
@@ -32,8 +42,7 @@ def build_server_deps(
 ) -> ServerDeps:
     """Assemble MCP server shared dependencies (built once at startup).
 
-    BM25 is bound to a single collection via collection_hint.
-    Multi-collection lazy-load deferred to Phase 6.
+    BM25 indices are cached per collection name and created lazily.
     """
     cfg = load_settings(config_path)
     reg = ServiceRegistry()
@@ -44,8 +53,7 @@ def build_server_deps(
     reranker = reg.build_reranker(cfg.query)
     trace = build_trace_writer(cfg.observability)
 
-    bm25_path = Path(cfg.data_dir).expanduser() / "bm25" / f"{collection_hint}.pkl"
-    bm25 = BM25PersistentIndex(path=bm25_path)
+    bm25 = _get_or_create_bm25(cfg, collection_hint)
 
     retriever = HybridRetriever(embedder=embedder, store=store, bm25_index=bm25)
     pipeline = QueryPipeline(
