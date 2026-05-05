@@ -14,6 +14,9 @@ from askbook.core.interfaces import (
     VectorStoreABC,
 )
 from askbook.ingestion.dedup import SHA256Deduplicator
+from askbook.ingestion.enrichment import (
+    LLMEnrichmentNode as EnrichmentNode,  # noqa: F401
+)
 from askbook.ingestion.loaders import MarkItDownLoader
 from askbook.splitters.recursive import RecursiveTextSplitter
 from askbook.vectorstores.bm25_index import BM25PersistentIndex
@@ -52,16 +55,6 @@ class SplitterNode(BasePipelineNode):
 
     def after_run(self, context: PipelineContext, span: TraceSpan) -> None:
         span.attributes["chunk_count"] = len(context.get("chunks", []))
-
-
-class EnrichmentNode(BasePipelineNode):
-    """Phase 1 passthrough; Phase 6 replaces with Vision LLM node."""
-
-    def __init__(self, trace_writer: TraceWriterProtocol) -> None:
-        super().__init__("enrich", trace_writer)
-
-    def run(self, context: PipelineContext) -> PipelineContext:
-        return {**context, "chunks": list(context.get("chunks", []))}
 
 
 class DedupNode(BasePipelineNode):

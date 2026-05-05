@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 import uuid
 from pathlib import Path
+from typing import Any
 
 from askbook.core.interfaces import (
     EmbedderProtocol,
@@ -35,10 +36,12 @@ class IngestionPipeline:
         embedder: EmbedderProtocol,
         store: VectorStoreABC,
         bm25_index: BM25PersistentIndex,
+        llm: Any = None,
         chunk_size: int = 600,
         chunk_overlap: int = 80,
         embed_concurrency: int = 4,
         chroma_concurrency: int = 4,
+        vision_concurrency: int = 2,
         trace_writer: TraceWriterProtocol | None = None,
     ) -> None:
         self._embedder = embedder
@@ -51,7 +54,14 @@ class IngestionPipeline:
         # Build the 7-node pipeline
         self._load_node = DocumentLoaderNode(self._trace)
         self._split_node = SplitterNode(self._trace, chunk_size, chunk_overlap)
-        self._enrich_node = EnrichmentNode(self._trace)
+        if llm is not None:
+            self._enrich_node = EnrichmentNode(
+                llm=llm,
+                trace_writer=self._trace,
+                vision_concurrency=vision_concurrency,
+            )
+        else:
+            self._enrich_node = EnrichmentNode(trace_writer=self._trace)
         self._dedup_node = DedupNode(self._trace)
         self._embed_node = EmbeddingNode(self._embedder, self._trace, embed_concurrency)
         self._write_node = VectorStoreWriteNode(

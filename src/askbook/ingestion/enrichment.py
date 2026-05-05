@@ -108,17 +108,25 @@ class LLMEnrichmentNode(BasePipelineNode):
     # Internal helpers
     # ------------------------------------------------------------------
 
+    # Cached at module level to avoid re-reading/re-compiling per image
+    _TEMPLATE: Template | None = None
+
     def _render_prompt(self, data_uri: str) -> str:
         """Parse a ``data:…;base64,…`` URI and render the Jinja2 template."""
         header, b64_data = data_uri.split(",", 1)
         mime_type = header.split(":")[1].split(";")[0]
 
-        text = (
-            files("askbook.prompts")
-            .joinpath("img_description.jinja")
-            .read_text("utf-8")
+        if LLMEnrichmentNode._TEMPLATE is None:
+            text = (
+                files("askbook.prompts")
+                .joinpath("img_description.jinja")
+                .read_text("utf-8")
+            )
+            LLMEnrichmentNode._TEMPLATE = Template(text)
+
+        result = LLMEnrichmentNode._TEMPLATE.render(
+            mime_type=mime_type, base64_data=b64_data
         )
-        result = Template(text).render(mime_type=mime_type, base64_data=b64_data)
         return str(result)
 
     def _enrich_chunk(self, chunk: Chunk, source_dir: Path) -> Chunk:
