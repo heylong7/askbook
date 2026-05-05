@@ -103,6 +103,8 @@ class FallbackProvider:
                 return provider.complete(
                     prompt, temperature=temperature, max_tokens=max_tokens
                 )
+            except (KeyboardInterrupt, SystemExit):
+                raise
             except Exception as exc:
                 if i < len(self._providers) - 1:
                     self._fallback_count += 1

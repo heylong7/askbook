@@ -51,7 +51,7 @@ def test_complete_success() -> None:
 
 
 def test_complete_raises_without_dashscope_sdk() -> None:
-    """complete() raises ProviderTimeoutError when dashscope SDK not installed."""
+    """complete() raises ProviderError when dashscope SDK not installed."""
     provider = DashScopeQwenProvider(api_key="test-key")
     # Mock the import to fail inside complete()
     original_import = builtins.__import__
@@ -63,9 +63,9 @@ def test_complete_raises_without_dashscope_sdk() -> None:
 
     builtins.__import__ = mock_import  # type: ignore[assignment]
     try:
-        from askbook.core.exceptions import ProviderTimeoutError
+        from askbook.core.exceptions import ProviderError
 
-        with pytest.raises(ProviderTimeoutError, match="dashscope SDK not installed"):
+        with pytest.raises(ProviderError, match="dashscope SDK not installed"):
             provider.complete("test prompt")
     finally:
         builtins.__import__ = original_import  # type: ignore[assignment]

@@ -5,8 +5,13 @@ from __future__ import annotations
 import os
 import time
 
+from askbook.core.exceptions import (
+    ProviderError,
+    ProviderQuotaError,
+    ProviderTimeoutError,
+)
 from askbook.core.models import LLMResponse
-from askbook.providers.base import BaseLLMProvider, ProviderTimeoutError
+from askbook.providers.base import BaseLLMProvider
 
 
 class DashScopeQwenProvider(BaseLLMProvider):
@@ -47,7 +52,7 @@ class DashScopeQwenProvider(BaseLLMProvider):
         try:
             from dashscope import Generation
         except ImportError as exc:
-            raise ProviderTimeoutError(
+            raise ProviderError(
                 self.provider_name, "dashscope SDK not installed"
             ) from exc
 
@@ -68,7 +73,10 @@ class DashScopeQwenProvider(BaseLLMProvider):
         latency_ms = (time.perf_counter() - t0) * 1000.0
 
         if resp.status_code != 200:
-            raise ProviderTimeoutError(
+            err_cls = ProviderError
+            if resp.status_code == 429:
+                err_cls = ProviderQuotaError
+            raise err_cls(
                 self.provider_name,
                 f"HTTP {resp.status_code}: {resp.message}",
             )
