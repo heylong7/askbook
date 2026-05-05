@@ -22,6 +22,7 @@ dependencies = [
   "mcp>=1.0",
   "streamlit>=1.32",
   "plotly>=5.20",
+  "ragas>=0.3.10",
 ]
 
 [project.optional-dependencies]
@@ -105,6 +106,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["mcp", "mcp.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["ragas", "ragas.*", "datasets"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
