@@ -49,9 +49,36 @@ class ServiceRegistry:
             return OllamaQwenProvider(
                 model=config.model, temperature=config.temperature
             )
+        if provider == "dashscope":
+            from askbook.providers.dashscope_qwen import DashScopeQwenProvider
+
+            return DashScopeQwenProvider(
+                model=config.model,
+                temperature=config.temperature,
+                max_tokens=config.max_tokens,
+            )
         raise ValueError(
-            f"Unknown LLM provider {config.provider!r}. Supported: 'stub', 'ollama'."
+            f"Unknown LLM provider {config.provider!r}. "
+            "Supported: 'stub', 'ollama', 'dashscope'."
         )
+
+    def build_fallback_chain(self, config: Any) -> Any:
+        """Build LLM provider with fallback chain if configured."""
+        from askbook.config.schema import LLMConfig
+        from askbook.providers.base import FallbackProvider
+
+        if not isinstance(config, LLMConfig):
+            raise TypeError(f"Expected LLMConfig, got {type(config)}")
+        if not config.fallback_chain:
+            return self.build_llm(config)
+
+        primary = self.build_llm(config)
+        fallbacks: list[Any] = []
+        for item in config.fallback_chain:
+            fb_config = LLMConfig(provider=item.provider, model=item.model)
+            fallbacks.append(self.build_llm(fb_config))
+
+        return FallbackProvider([primary] + fallbacks)
 
     def build_embedder(self, config: EmbeddingConfig) -> EmbedderProtocol:
         provider = config.provider.lower()

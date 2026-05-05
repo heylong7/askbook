@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
-from askbook.core.models import TokenUsage
+from askbook.core.models import LLMResponse, TokenUsage
 
 T = TypeVar("T")
 
@@ -57,9 +57,55 @@ class BaseLLMProvider(RetryMixin, TokenCountingMixin):
     def provider_name(self) -> str:
         raise NotImplementedError
 
+    def complete(
+        self,
+        prompt: str,
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> LLMResponse:
+        raise NotImplementedError
+
+
+class FallbackProvider:
+    """Tries providers in order; raises ProviderFallbackExhaustedError if all fail."""
+
+    def __init__(self, providers: list[BaseLLMProvider]) -> None:
+        if not providers:
+            raise ValueError("FallbackProvider requires at least one provider")
+        self._providers = providers
+
+    @property
+    def provider_name(self) -> str:
+        return "fallback"
+
+    def complete(
+        self,
+        prompt: str,
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> LLMResponse:
+        from askbook.core.exceptions import ProviderFallbackExhaustedError
+
+        last_error: Exception | None = None
+        for provider in self._providers:
+            try:
+                return provider.complete(
+                    prompt, temperature=temperature, max_tokens=max_tokens
+                )
+            except Exception as exc:
+                last_error = exc
+                continue
+        raise ProviderFallbackExhaustedError(
+            self.provider_name,
+            f"All {len(self._providers)} providers failed",
+        ) from last_error
+
 
 __all__ = [
     "BaseLLMProvider",
+    "FallbackProvider",
     "ProviderTimeoutError",
     "RetryMixin",
     "TokenCountingMixin",
