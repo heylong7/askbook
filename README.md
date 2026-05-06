@@ -89,14 +89,14 @@ uv run askbook query ask "如何配置 Ollama？" --collection demo
 uv run askbook query search "混合检索原理" --collection demo
 ```
 
-### 模式 B — 云端加速（DashScope API）
+### 模式 B — 云端加速（阿里云百炼 API）
 
-本地模型（7B/14B）在复杂问答场景下可能不如云端大模型。DashScope（阿里云灵积）按量计费，qwen-plus 约 ¥0.004/千 token。
+本地模型（7B/14B）在复杂问答场景下可能不如云端大模型。百炼（阿里云大模型平台）按量计费，qwen-plus 约 ¥0.004/千 token。
 
 **1. 获取 API Key**
 
-- 注册：https://dashscope.console.aliyun.com
-- 开通「模型服务灵积」→ 创建 API Key → 复制 `sk-xxxxxxxx`
+- 注册：https://bailian.console.aliyun.com
+- 开通「模型服务」→ 创建 API Key → 复制 `sk-xxxxxxxx`
 
 **2. 配置环境变量**
 
@@ -108,12 +108,12 @@ DASHSCOPE_API_KEY=sk-xxxxxxxx
 
 > 纯本地模式不需要填 API Key。需要时才填。
 
-**3. 用 DashScope 配置启动**
+**3. 用百炼配置启动**
 
-项目提供 `configs/ollama-only.yaml`（纯本地）。创建 `configs/dashscope.yaml`：
+项目提供 `configs/ollama-only.yaml`（纯本地）。创建 `configs/bailian.yaml`：
 
 ```yaml
-# DashScope + 本地 embedding
+# 百炼 + 本地 embedding
 llm:
   provider: dashscope
   model: qwen-plus
@@ -128,7 +128,7 @@ query:
 ```
 
 ```bash
-uv run askbook serve --collection demo --config configs/dashscope.yaml
+uv run askbook serve --collection demo --config configs/bailian.yaml
 ```
 
 **4. 可选：配置 Fallback 链**
@@ -142,7 +142,7 @@ llm:
       model: qwen2.5:7b
 ```
 
-DashScope 超时或不可用时，自动降级到本地 Ollama。
+百炼超时或不可用时，自动降级到本地 Ollama。
 
 ## 配置详解
 
@@ -165,7 +165,7 @@ export ASKBOOK_LLM__TEMPERATURE=0.0
 | 组件 | Provider | 需要 API Key | 说明 |
 |------|----------|-------------|------|
 | **LLM** | `ollama` | 否 | 本地运行，需先 `ollama pull` 拉模型 |
-| **LLM** | `dashscope` | 是 (`DASHSCOPE_API_KEY`) | 阿里云灵积，qwen 系列模型 |
+| **LLM** | `dashscope` | 是 (`DASHSCOPE_API_KEY`) | 阿里云百炼，qwen 系列模型 |
 | **LLM** | `stub` | 否 | 测试用，返回固定回答 |
 | **Embedding** | `bge-m3` | 否 | 本地运行 BAAI/bge-m3，1024 维 |
 | **Embedding** | `stub` | 否 | 测试用，哈希假向量 |
@@ -375,11 +375,11 @@ uv run python scripts/anti_pattern_check.py              # Harness 反模式扫�
 
 **导入卡住** → 确认已 `ollama pull nomic-embed-text`；大文件首次处理慢
 
-**回答质量差** → 确认文档覆盖了问题域；GPU 机器换 `qwen2.5:14b` 或启用 DashScope
+**回答质量差** → 确认文档覆盖了问题域；GPU 机器换 `qwen2.5:14b` 或启用百炼
 
 **`DASHSCOPE_API_KEY` 不生效** → 确认 `.env` 在项目根目录；或 `export DASHSCOPE_API_KEY=sk-xxx` 直接设环境变量
 
-**DashScope 返回空或超时** → 配置 `fallback_chain` 自动降级到 Ollama
+**百炼返回空或超时** → 配置 `fallback_chain` 自动降级到 Ollama
 
 **路径含空格/中文** → 必须加引号：`uv run askbook ingest "D:\我的文档\笔记.md" --collection notes`
 

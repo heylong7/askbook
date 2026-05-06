@@ -114,7 +114,7 @@ askbook/                           # 仓库根目录
 ├── configs/
 │   ├── default.yaml               # 主配置模板
 │   ├── ollama-only.yaml           # 全本地化示例
-│   └── dashscope-cloud.yaml       # 云端示例
+│   └── bailian.yaml              # 云端示例
 ├── examples/
 │   ├── sample_docs/               # 测试文档
 │   └── claude_desktop_mcp.json    # MCP 接入示例
@@ -873,7 +873,7 @@ src/askbook/
 | 配置文件格式 | YAML | 支持锚点、注释、嵌套，适合 pipeline 节点列表 |
 | 密钥注入 | `.env` 环境变量 | 与配置文件完全分离，防止误提交 |
 | 校验工具 | `pydantic-settings` v2 | 启动时强类型校验，错误信息精确到字段 |
-| 多环境 | 多 YAML 文件 + 环境变量覆盖 | `ollama-only.yaml` 全本地，`dashscope-cloud.yaml` 云端 |
+| 多环境 | 多 YAML 文件 + 环境变量覆盖 | `ollama-only.yaml` 全本地，`bailian.yaml` 百炼云端 |
 
 ### 阅读地图
 
@@ -1021,7 +1021,7 @@ class Settings(BaseSettings):
 - `src/askbook/config/settings.py`
 - `src/askbook/config/schema.py`
 - `src/askbook/config/defaults.yaml`
-- `configs/default.yaml` / `configs/ollama-only.yaml` / `configs/dashscope-cloud.yaml`
+- `configs/default.yaml` / `configs/ollama-only.yaml` / `configs/bailian.yaml`
 
 **常见陷阱：**
 - YAML 中直接写 `api_key: sk-real-key` → 应该写 `api_key: ${OPENAI_API_KEY}` 或在 `.env` 注入
