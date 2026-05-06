@@ -1,6 +1,6 @@
-# askbook 开发规范 (DEV_SPEC) v2.9
+# askbook 开发规范 (DEV_SPEC) v2.10
 
-> 版本: 2.9 | 更新: 2026-05-05
+> 版本: 2.10 | 更新: 2026-05-06
 > 包名: `askbook` | Python 3.12+ | 布局: `src/askbook/`
 > 本文档定义 askbook RAG+MCP Server 项目的全生命周期开发标准。
 
@@ -78,6 +78,7 @@
 | 2.7 | 2026-05-04 | Phase 5（Evaluation v0.1）完成：seed_manual 20 条 + 检索四指标（hit_rate/MRR/Recall@K/NDCG）+ RetrievalEvalRunner + askbook eval CLI + Golden 集 CI 回归门禁（drop ≤ 0.05）；首次基线 v0.1_scores.json 提交 |
 | 2.8 | 2026-05-04 | DEV_SPEC 元更新：header 版本号同步至 v2.7；新增附录 E.1f（Phase 5 执行记录）；E.4 Phase 5 计划状态更新为已完成 |
 | 2.9 | 2026-05-05 | Phase 6（v0.5 扩展）全部完成：Vision LLM 图片描述摄入（LLMEnrichmentNode）/ DashScope Provider + FallbackProvider 降级链 / Query Rewrite 默认开启 + Dashboard Rewrite Diff / Ragas + LLM-judge 答案质量评估 / 诊断 MCP 工具 trace_lookup + collection_stats（TOOL_REGISTRY 6 项）/ Dashboard 4-5 页（Trace 查看器 + 评估结果）；318 tests 全绿；MCP 工具名更新为实际实现的 trace_lookup + collection_stats；附录 A v0.5 条目全部勾选；新增附录 E.1g（Phase 6 执行记录） |
+| 2.10 | 2026-05-06 | Phase 7（v1.0 生产就绪）全部完成：Harness 健康指标（completion_rate/retries_per_task/pass@1/cost_per_task）+ Dashboard 第 5 页集成 / 反模式 CI 检查（6 种 DEV_SPEC §30.3 反模式）/ HyDE 具体化（受控启用）/ SemanticSplitter（语义分块器）/ 用户反馈收集（Dashboard 按钮 + JSONL 持久化）/ askbook gc 命令（orphan chunk 清理 + 接口签名检查 + trace 归档）/ README v1.0 重构（项目定位 + 详细配置指南 + 面试题库）/ 新增附录 E.1h（Phase 7 执行记录）；373 tests 全绿（3 个预存 MCP stdio 环境异常跳过）；anti_pattern_check 6/6 PASS
 
 ---
 
@@ -593,7 +594,20 @@ jobs:
 
 ### 产品叙事（给用户 / 产品经理）
 
-> askbook 是一个**本地运行的私有知识库问答系统**，让你可以把 PDF 论文、技术文档、会议记录等私有文件上传，然后通过自然语言提问获得准确引用原文的回答——无需将数据上传到任何云端。同时，它以 MCP Server 的形式运行，让 Claude Desktop、GitHub Copilot 等 AI 助手可以直接调用你的知识库。
+> askbook 是一个**本地优先的私有知识库 RAG 系统**，将 PDF、Word、Markdown、TXT 等文档导入后，通过自然语言提问即可获得带原文引用的准确回答——数据全程不出机器，无需上传任何云端。同时以 **MCP Server**（Model Context Protocol）对外暴露，让 Claude Desktop、VS Code Copilot 等 AI 助手可以直接调用你的私有知识库，实现「AI + 你的文档」无缝协作。
+
+**目标用户：**
+- 个人研究者 / 学生：海量论文笔记，用自然语言检索和问答
+- 本地优先用户 / 小团队：数据敏感、合规要求严、不能上传云端
+- AI 应用开发者：通过 MCP 协议给 AI 助手挂载私有知识库
+- 技术面试评估：展示 RAG + MCP 全栈工程能力
+
+**核心差异化：**
+- **纯本地运行**：Ollama + BGE-M3，零云端依赖，数据不出机器
+- **MCP 原生**：6 个工具（4 核心 + 2 诊断），stdio 协议，开箱接入 Claude Desktop
+- **全链路可观测**：JSONL Trace + 5 页 Streamlit Dashboard
+- **Harness 质量门禁**：4 项 SLO 健康指标 + 6 种反模式 CI 检查
+- **可插拔架构**：LLM / Embedder / VectorStore / Evaluator 全部可替换
 
 ### 技术叙事（给工程师 / 面试官）
 
