@@ -1,4 +1,4 @@
-"""Tests for scripts/anti_pattern_check.py — 8 tests per Task 7.2 Step 2."""
+"""Tests for scripts/anti_pattern_check.py — 12 tests."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from scripts.anti_pattern_check import (
     MAX_MCP_TOOLS,
     check_llm_judge_parallel,
     check_mcp_tool_count,
+    check_mutable_global_state,
     check_query_span_original_query,
     check_retrieval_result,
     check_tool_response_source_ids,
@@ -66,6 +67,14 @@ def test_tool_response_source_ids_present(tmp_path: Path) -> None:
     assert check_tool_response_source_ids(src) == []
 
 
+def test_tool_response_missing_source_ids_detected(tmp_path: Path) -> None:
+    """File without ``source_ids`` should be flagged."""
+    src = _write(tmp_path / "contracts.py", "status: str = 'success'\n")
+    violations = check_tool_response_source_ids(src)
+    assert len(violations) == 1
+    assert violations[0].pattern == "ToolResponse source_ids"
+
+
 # ---------------------------------------------------------------------------
 # Check 3 — QuerySpan original_query
 # ---------------------------------------------------------------------------
@@ -75,6 +84,34 @@ def test_query_span_original_query_present(tmp_path: Path) -> None:
     """File containing ``\"original_query\"`` should pass."""
     src = _write(tmp_path / "schema.py", 'original_query: str = ""\n')
     assert check_query_span_original_query(src) == []
+
+
+def test_query_span_missing_original_query_detected(tmp_path: Path) -> None:
+    """File without ``original_query`` should be flagged."""
+    src = _write(tmp_path / "schema.py", "query: str = ''\n")
+    violations = check_query_span_original_query(src)
+    assert len(violations) == 1
+    assert violations[0].pattern == "QuerySpan original_query"
+
+
+# ---------------------------------------------------------------------------
+# Check 4 — Mutable global state
+# ---------------------------------------------------------------------------
+
+
+def test_mutable_global_state_detected(tmp_path: Path) -> None:
+    """Pipeline file with non-constant module-level assignment should be flagged."""
+    src = _write(
+        tmp_path / "pipeline.py",
+        "MAX_RETRIES = 3\n"
+        "_private = True\n"
+        "__all__ = ['run']\n"
+        "shared_state = {}  # mutable, non-constant\n",
+    )
+    violations = check_mutable_global_state([src])
+    assert len(violations) == 1
+    assert violations[0].pattern == "Mutable global state"
+    assert "shared_state" in violations[0].detail
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +159,21 @@ def test_llm_judge_parallel_detected(tmp_path: Path) -> None:
         "    await asyncio.gather(*tasks)\n",
     )
     assert check_llm_judge_parallel(src) == []
+
+
+def test_serial_llm_judge_detected(tmp_path: Path) -> None:
+    """File without asyncio.gather or Semaphore should be flagged as serial."""
+    src = _write(
+        tmp_path / "llm_judge.py",
+        "async def judge(prompts):\n"
+        "    results = []\n"
+        "    for p in prompts:\n"
+        "        results.append(await call_llm(p))\n"
+        "    return results\n",
+    )
+    violations = check_llm_judge_parallel(src)
+    assert len(violations) == 1
+    assert violations[0].pattern == "LLM-judge parallelism"
 
 
 # ---------------------------------------------------------------------------
