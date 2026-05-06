@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from typing import cast
 
 from askbook.core.interfaces import (
     BasePipelineNode,
@@ -67,7 +68,11 @@ class HybridRetrieverNode(BasePipelineNode):
         self._top_k = top_k
 
     def run(self, context: PipelineContext) -> PipelineContext:
-        query = context.get("rewritten_query") or context["query"]
+        query: str = (
+            cast(str, context.get("hyde_query", ""))
+            or context.get("rewritten_query", "")
+            or context["query"]
+        )
         collection = context["collection"]
         candidate_k = self._top_k * _CANDIDATE_MULTIPLIER
         bm25_res, dense_res = asyncio.run(
