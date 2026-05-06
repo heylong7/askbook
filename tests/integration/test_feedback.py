@@ -6,6 +6,7 @@ import importlib
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -15,7 +16,7 @@ import pytest
 # ---------------------------------------------------------------------------
 
 
-def _import_page_module(monkeypatch: pytest.MonkeyPatch) -> object:
+def _import_page_module(monkeypatch: pytest.MonkeyPatch) -> Any:
     """Import the dashboard page 5 module with streamlit mocked out."""
     module_name = "askbook.dashboard.pages.5_evaluation"
     sys.modules.pop(module_name, None)
