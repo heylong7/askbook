@@ -14,6 +14,19 @@ uv sync --all-extras
 cp .env.example .env
 ```
 
+## 快速开始
+
+```bash
+# 1. 安装
+pip install askbook
+
+# 2. 摄入文档
+askbook ingest ./docs --collection demo
+
+# 3. 提问
+askbook query "什么是 RAG？" --collection demo
+```
+
 ## 使用方法
 
 ### 1. 导入文档
@@ -58,8 +71,8 @@ askbook serve --collection demo --config ~/.askbook/config.yaml
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
-| `ASKBOOK_LLM__PROVIDER` | `ollama` | LLM 提供商（`ollama` / `stub`） |
-| `ASKBOOK_EMBEDDING__PROVIDER` | `bge-m3` | Embedding 模型（`bge-m3` / `stub`） |
+| `ASKBOOK_LLM__PROVIDER` | `ollama` | LLM 提供商（`ollama` / `dashscope` / `stub`） |
+| `ASKBOOK_EMBEDDING__PROVIDER` | `bge-m3` | Embedding 模型（`bge-m3` / `dashscope` / `stub`） |
 | `ASKBOOK_VECTORSTORE__PATH` | `~/.askbook/chroma` | ChromaDB 存储路径 |
 | `ASKBOOK_DATA_DIR` | `~/.askbook` | BM25 索引等数据目录 |
 
@@ -76,6 +89,8 @@ askbook serve --collection demo --config ~/.askbook/config.yaml
    - `ask` — 完整 RAG 问答，返回答案 + 引用来源
    - `list_collections` — 列出所有可用 collection
    - `get_document_summary` — 查看指定文档的摘要信息
+   - `trace_lookup` — 按 trace_id 查询链路事件或浏览近期事件
+   - `collection_stats` — 查看 collection 的详细统计（chunk 数、文档数、磁盘大小）
 
 **工具返回格式（`ToolResponse`）：**
 
@@ -99,7 +114,7 @@ uv run pytest -q
 uv run ruff check . && uv run ruff format --check . && uv run mypy --strict src/ && uv run pytest --cov=src/askbook --cov-fail-under=80 -q
 ```
 
-详细开发规范见 `DEV_SPEC.md`。当前进度：Phase 4（Trace + Dashboard）✅ 完成，252 个测试，覆盖率 ≥ 80%。
+详细开发规范见 `DEV_SPEC.md`。当前进度：Phase 7 (v1.0) ✅ 完成，379 个测试，覆盖率 ≥ 80%。
 
 ## 可观测性（Trace + Dashboard）
 
@@ -123,7 +138,9 @@ uv run askbook dashboard --port 9000
 浏览器打开 `http://localhost:8501`，可查看：
 - **页面 1 — 系统总览**：今日 Query 数 / P50 延迟 / Token 总量 / 各组件健康状态
 - **页面 2 — 数据浏览**：Chroma Collection 文档列表与 Chunk 预览
-- **页面 3 — Ingestion 监控**：Ingestion 运行记录 + Plotly Gantt 甘特图
+- **页面 3 — Ingestion 监控**：Ingestion 运行记录 + Plotly Gantt 甘特图 + Query Rewrite 审计
+- **页面 4 — Trace 查看器**：Trace 事件浏览、筛选与详情查看
+- **页面 5 — 评估与质量**：检索指标（Hit Rate / MRR / Recall / NDCG）、Ragas 与 LLM-judge 评分、Harness 健康卡片、用户反馈收集
 
 ### 配置项
 
@@ -142,7 +159,18 @@ uv run askbook dashboard --port 9000
 ## Evaluation (v0.1)
 
 `askbook` ships with a 20-item human-curated QA set at `datasets/seed_manual.yaml`
-and four code-only retrieval metrics (`hit_rate`, `mrr`, `recall@k`, `ndcg@k`).
+and the following evaluation metrics:
+
+**Retrieval metrics** (4 core metrics):
+- `hit_rate`、`mrr`、`recall@k`、`ndcg@k`
+
+**Answer quality metrics** (Ragas):
+- `faithfulness` — 答案是否忠实于检索上下文
+- `answer_relevancy` — 答案与问题的相关性
+
+**LLM-judge** (parallel judge evaluation):
+- 使用 LLM-as-judge 模式对每对 QA 进行 faithfulness 与 relevancy 评分
+- 基于 asyncio.Semaphore 实现并发判卷，支持自定义并发度
 
 Run the suite once your sample collection is ingested:
 
@@ -155,3 +183,16 @@ Each run writes `eval_runs/<timestamp>.json`. To establish a new baseline (only
 when you intentionally improved retrieval), pass `--update-baseline
 tests/golden/baselines/v0.1_scores.json`. CI runs `pytest -m golden` and fails
 when any metric drops more than 0.05 below the recorded baseline.
+
+## Harness 健康指标
+
+askbook 内置 Harness 健康监控，通过 Dashboard 页面 5 实时呈现：
+
+| 指标 | 目标 | 说明 |
+|------|------|------|
+| **completion_rate** | >= 95% | MCP 工具调用成功率 |
+| **retries_per_task** | <= 1.2 | 每个任务的平均重试次数 |
+| **pass@1** | >= 85% | Golden 数据集首轮通过率 |
+| **cost_per_task** | <= ¥0.05 | 每次成功 ask 调用的平均成本 |
+
+**Anti-pattern CI 检查**：Harness 层对 6 种反模式做静态分析（详见 DEV_SPEC §30.3），包括 context rot、hallucinated completion、model drift 等，确保每次代码提交符合质量门禁。
