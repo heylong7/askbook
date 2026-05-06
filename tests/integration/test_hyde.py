@@ -2,23 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
-from unittest.mock import MagicMock
-
-from askbook.core.interfaces import TraceSpan
 from askbook.observability.null_trace import NullTraceWriter
 from askbook.providers.stub import StubLLMProvider
 from askbook.query.hyde import HyDENode
-
-
-def _make_trace() -> Any:
-    span = TraceSpan(name="test")
-    cm = MagicMock()
-    cm.__enter__ = MagicMock(return_value=span)
-    cm.__exit__ = MagicMock(return_value=False)
-    trace = MagicMock()
-    trace.span = MagicMock(return_value=cm)
-    return trace
 
 
 def test_hyde_disabled_passthrough() -> None:

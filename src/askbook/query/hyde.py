@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from importlib.resources import files
 
+from jinja2 import Template
+
 from askbook.core.interfaces import (
     BasePipelineNode,
     LLMProviderProtocol,
@@ -12,6 +14,7 @@ from askbook.core.interfaces import (
 )
 
 _HYDE_PROMPT = files("askbook.prompts").joinpath("hyde.jinja").read_text("utf-8")
+_HYDE_TEMPLATE = Template(_HYDE_PROMPT)
 
 
 class HyDENode(BasePipelineNode):
@@ -34,15 +37,13 @@ class HyDENode(BasePipelineNode):
         if self._llm is None:
             return context
 
-        from jinja2 import Template
-
         query = context.get("query", "")
-        prompt = Template(_HYDE_PROMPT).render(query=query)
+        prompt = _HYDE_TEMPLATE.render(query=query)
         response = self._llm.complete(prompt)
         hyde_doc = response.content.strip()
 
         if hyde_doc:
-            context["hyde_query"] = hyde_doc  # type: ignore[typeddict-unknown-key]
+            return {**context, "hyde_query": hyde_doc}  # type: ignore[typeddict-unknown-key]
 
         return context
 
