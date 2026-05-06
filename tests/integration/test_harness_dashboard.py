@@ -81,7 +81,7 @@ class TestDashboardPage5WithoutData:
         monkeypatch.setattr("streamlit.header", MagicMock())
         monkeypatch.setattr(
             "streamlit.columns",
-            lambda n: [MagicMock() for _ in range(n)],
+            lambda n: [MagicMock() for _ in range(n if isinstance(n, int) else len(n))],
         )
         monkeypatch.setattr("streamlit.metric", MagicMock())
         monkeypatch.setattr("streamlit.expander", lambda title: MagicMock())
@@ -139,7 +139,7 @@ class TestDashboardPage5WithEvents:
         monkeypatch.setattr("streamlit.header", MagicMock())
         monkeypatch.setattr(
             "streamlit.columns",
-            lambda n: [MagicMock() for _ in range(n)],
+            lambda n: [MagicMock() for _ in range(n if isinstance(n, int) else len(n))],
         )
         mock_metric = MagicMock()
         monkeypatch.setattr("streamlit.metric", mock_metric)
@@ -190,7 +190,7 @@ class TestDashboardPage5WithEvents:
         monkeypatch.setattr("streamlit.header", MagicMock())
         monkeypatch.setattr(
             "streamlit.columns",
-            lambda n: [MagicMock() for _ in range(n)],
+            lambda n: [MagicMock() for _ in range(n if isinstance(n, int) else len(n))],
         )
         mock_metric = MagicMock()
         monkeypatch.setattr("streamlit.metric", mock_metric)
