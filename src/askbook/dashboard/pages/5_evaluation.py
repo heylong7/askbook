@@ -4,12 +4,27 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import streamlit as st
 
 from askbook.config.settings import load_settings
 from askbook.dashboard.loader import load_events
+
+
+def _save_feedback(question: str, fb_type: str) -> None:
+    """Append feedback entry to eval_runs/feedback.jsonl."""
+    feedback_path = Path.cwd() / "eval_runs" / "feedback.jsonl"
+    feedback_path.parent.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "question": question,
+        "feedback": fb_type,
+        "timestamp": datetime.now(timezone.utc).isoformat(),  # noqa: UP017
+    }
+    with open(feedback_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
 
 st.title("评估与质量")
 
@@ -131,3 +146,16 @@ if feedback_path.exists():
         st.metric("👎", down_count)
 else:
     st.info("暂无反馈数据")
+
+# --- Feedback submission section ---
+st.header("提交反馈")
+feedback_q = st.text_input("问题（可选）", key="feedback_question")
+col1, col2, col3 = st.columns([1, 1, 3])
+with col1:
+    if st.button("有用", key="feedback_up"):
+        _save_feedback(feedback_q, "up")
+        st.success("已记录")
+with col2:
+    if st.button("无用", key="feedback_down"):
+        _save_feedback(feedback_q, "down")
+        st.success("已记录")
