@@ -1,0 +1,13 @@
+# 百炼 LLM + embedding（共用 DASHSCOPE_API_KEY）
+llm:
+  provider: dashscope
+  model: qwen-plus
+  temperature: 0.1
+
+# embedding 也可切 dashscope: text-embedding-v3
+embedding:
+  provider: bge-m3           # embedding 仍走本地 bge-m3，零成本
+
+query:
+  top_k: 10
+  enable_rewrite: true

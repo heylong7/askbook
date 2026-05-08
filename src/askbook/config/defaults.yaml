@@ -2,6 +2,19 @@
 log_level: INFO
 data_dir: ~/.askbook
 
+# ---- LLM 配置 ----------------------------------------------------------
+# provider 可选:
+#   ollama     — 本地 Ollama (需先 ollama pull <model>)
+#   dashscope  — 阿里云百炼 (需 DASHSCOPE_API_KEY 环境变量)
+#   openai     — OpenAI (需 OPENAI_API_KEY 环境变量)
+#   anthropic  — Anthropic (需 ANTHROPIC_API_KEY 环境变量)
+#   stub       — 测试桩 (固定返回，无需网络)
+#
+# model 按 provider 常用值:
+#   ollama:    qwen2.5:7b / qwen2.5:14b / qwen2.5:32b / llama3:8b / deepseek-r1:8b
+#   dashscope: qwen-plus / qwen-max / qwen-turbo
+#   openai:    gpt-4o / gpt-4o-mini / gpt-4-turbo / o3-mini
+#   anthropic: claude-sonnet-4-6 / claude-opus-4-7 / claude-haiku-4-5
 llm:
   provider: ollama
   model: qwen2.5:7b
@@ -11,6 +24,17 @@ llm:
   token_limit_per_call: 8000
   quota_per_hour: 100
 
+# ---- Embedding 配置 ----------------------------------------------------
+# provider 可选:
+#   bge-m3     — 本地 BGE-M3 (需 pip install FlagEmbedding)
+#   openai     — OpenAI Embeddings (需 OPENAI_API_KEY 环境变量)
+#   dashscope  — 百炼 TextEmbedding (需 DASHSCOPE_API_KEY 环境变量)
+#   stub       — 测试桩
+#
+# model 按 provider 常用值:
+#   bge-m3:    BAAI/bge-m3
+#   openai:    text-embedding-3-small / text-embedding-3-large
+#   dashscope: text-embedding-v3 / text-embedding-v4
 embedding:
   provider: bge-m3
   model: BAAI/bge-m3

@@ -1,10 +1,30 @@
 # 主配置模板：复制本文件并按需修改
+# llm provider 可选: ollama | dashscope | openai | anthropic | stub
+# embedding provider 可选: bge-m3 | openai | dashscope | stub
+#
+# 环境变量要求:
+#   ollama     无需 (本地)
+#   dashscope  DASHSCOPE_API_KEY
+#   openai     OPENAI_API_KEY
+#   anthropic  ANTHROPIC_API_KEY
+#   bge-m3     无需 (本地)
 log_level: INFO
 
+# ---- LLM 配置 ----------------------------------------------------------
+# 常用模型:
+#   ollama:    qwen2.5:7b / qwen2.5:14b / qwen2.5:32b / llama3:8b
+#   dashscope: qwen-plus / qwen-max / qwen-turbo
+#   openai:    gpt-4o / gpt-4o-mini / gpt-4-turbo / o3-mini
+#   anthropic: claude-sonnet-4-6 / claude-opus-4-7 / claude-haiku-4-5
 llm:
   provider: ollama
   model: qwen2.5:7b
 
+# ---- Embedding 配置 ----------------------------------------------------
+# 常用模型:
+#   bge-m3:    BAAI/bge-m3
+#   openai:    text-embedding-3-small / text-embedding-3-large
+#   dashscope: text-embedding-v3 / text-embedding-v4
 embedding:
   provider: bge-m3
   model: BAAI/bge-m3
