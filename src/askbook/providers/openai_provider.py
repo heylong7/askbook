@@ -87,14 +87,20 @@ class OpenAIProvider(BaseLLMProvider):
                     "POST", self._endpoint, json=body, headers=headers
                 ) as resp,
             ):
+                try:
                     resp.raise_for_status()
-                    async for line in resp.aiter_lines():
-                        if line.startswith("data: ") and line != "data: [DONE]":
-                            data = json.loads(line[6:])
-                            delta = data.get("choices", [{}])[0].get("delta", {})
-                            chunk = delta.get("content", "")
-                            if chunk:
-                                yield chunk
+                except httpx.HTTPStatusError as exc:
+                    raise ProviderError(
+                        self.provider_name,
+                        f"HTTP {exc.response.status_code}: {exc.response.text}",
+                    ) from exc
+                async for line in resp.aiter_lines():
+                    if line.startswith("data: ") and line != "data: [DONE]":
+                        data = json.loads(line[6:])
+                        delta = data.get("choices", [{}])[0].get("delta", {})
+                        chunk = delta.get("content", "")
+                        if chunk:
+                            yield chunk
         except httpx.TimeoutException as exc:
             raise ProviderTimeoutError(
                 self.provider_name, f"stream timed out: {exc}"
@@ -139,7 +145,12 @@ class OpenAIProvider(BaseLLMProvider):
             )
 
         data = resp.json()
-        content: str = data["choices"][0]["message"]["content"]
+        try:
+            content: str = data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise ProviderError(
+                self.provider_name, f"unexpected response shape: {exc}"
+            ) from exc
         usage_data = data.get("usage", {})
         if usage_data:
             usage = TokenUsage(

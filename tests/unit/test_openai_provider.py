@@ -116,3 +116,56 @@ async def test_acomplete_matches_complete() -> None:
     resp = await provider.acomplete("test")
     assert resp.content == "async response"
     assert resp.provider == "openai"
+
+
+@respx.mock
+def test_complete_fallback_token_counting() -> None:
+    """complete() falls back to _make_usage when API returns no usage field."""
+    respx.post("https://api.openai.com/v1/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": "no usage data"}}],
+                "model": "gpt-4o",
+            },
+        )
+    )
+    provider = OpenAIProvider(api_key="test-key")
+    provider.max_retries = 0
+    result = provider.complete("test prompt")
+    assert result.content == "no usage data"
+    assert result.usage.prompt_tokens >= 1
+    assert result.usage.completion_tokens >= 1
+    assert result.usage.total_tokens > 0
+
+
+@respx.mock
+def test_complete_raises_on_malformed_response() -> None:
+    """complete() raises ProviderError when response is missing choices."""
+    respx.post("https://api.openai.com/v1/chat/completions").mock(
+        return_value=httpx.Response(200, json={})
+    )
+    provider = OpenAIProvider(api_key="test-key")
+    provider.max_retries = 0
+    with pytest.raises(ProviderError, match="openai"):
+        provider.complete("test")
+
+
+@respx.mock
+async def test_astream_yields_chunks() -> None:
+    """astream() yields content chunks from SSE stream."""
+    sse_lines = (
+        "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}\n"
+        "\n"
+        "data: {\"choices\":[{\"delta\":{\"content\":\" world\"}}]}\n"
+        "\n"
+        "data: [DONE]\n"
+        "\n"
+    )
+    respx.post("https://api.openai.com/v1/chat/completions").mock(
+        return_value=httpx.Response(200, content=sse_lines)
+    )
+    provider = OpenAIProvider(api_key="test-key")
+    provider.max_retries = 0
+    chunks = [c async for c in provider.astream("test")]
+    assert chunks == ["Hello", " world"]
