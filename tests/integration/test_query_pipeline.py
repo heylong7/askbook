@@ -73,7 +73,7 @@ def test_query_pipeline_end_to_end(tmp_path: Path) -> None:
         for i in range(5)
     ]
     store.upsert(chunks, collection)
-    bm25.add([(c.chunk_id, c.content) for c in chunks])
+    bm25.add([(c.chunk_id, c.content, c.metadata) for c in chunks])
 
     pipeline = _build_pipeline(tmp_path, collection=collection)
     answer = pipeline.run(query="alpha", collection=collection)

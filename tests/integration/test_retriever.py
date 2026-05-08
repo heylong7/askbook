@@ -44,7 +44,7 @@ def test_hybrid_retriever_integration(tmp_path: Path) -> None:
         for i in range(3)
     ]
     store.upsert(chunks, collection)
-    bm25.add([(c.chunk_id, c.content) for c in chunks])
+    bm25.add([(c.chunk_id, c.content, c.metadata) for c in chunks])
 
     retriever = HybridRetriever(embedder=embedder, store=store, bm25_index=bm25)
     bm25_res, dense_res = asyncio.run(

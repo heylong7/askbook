@@ -25,6 +25,8 @@ class BM25PersistentIndex:
         self._path = Path(path)
         self._chunk_ids: list[str] = []
         self._tokens: list[list[str]] = []
+        self._contents: dict[str, str] = {}
+        self._metadata: dict[str, dict] = {}
         self._bm25: BM25Plus | None = None
         if self._path.exists():
             self._load()
@@ -34,18 +36,22 @@ class BM25PersistentIndex:
             data = pickle.load(f)
         self._chunk_ids = data["chunk_ids"]
         self._tokens = data["tokens"]
+        self._contents = data.get("contents", {})
+        self._metadata = data.get("metadata", {})
         self._rebuild()
 
     def _rebuild(self) -> None:
         self._bm25 = BM25Plus(self._tokens) if self._tokens else None
 
-    def add(self, items: list[tuple[str, str]]) -> None:
+    def add(self, items: list[tuple[str, str, dict]]) -> None:
         existing = set(self._chunk_ids)
-        for cid, text in items:
+        for cid, text, metadata in items:
             if cid in existing:
                 continue
             self._chunk_ids.append(cid)
             self._tokens.append(_tokenize(text))
+            self._contents[cid] = text
+            self._metadata[cid] = metadata
             existing.add(cid)
         self._rebuild()
 
@@ -55,6 +61,8 @@ class BM25PersistentIndex:
         keep_tokens: list[list[str]] = []
         for cid, toks in zip(self._chunk_ids, self._tokens, strict=True):
             if cid in drop:
+                self._contents.pop(cid, None)
+                self._metadata.pop(cid, None)
                 continue
             keep_ids.append(cid)
             keep_tokens.append(toks)
@@ -84,21 +92,37 @@ class BM25PersistentIndex:
         from askbook.core.models import RetrievalResult
 
         hits = self.search(query, top_k=top_k)
-        return [
-            RetrievalResult(
-                chunk_id=cid,
-                score=float(score),
-                snippet=(snippet_lookup(cid) if snippet_lookup else "")[:200],
-                metadata={},
-                retrieval_method="bm25",
+        results: list[RetrievalResult] = []
+        for cid, score in hits:
+            content = self._contents.get(cid, "")
+            snippet = ""
+            if snippet_lookup:
+                snippet = snippet_lookup(cid)
+            elif content:
+                snippet = content
+            results.append(
+                RetrievalResult(
+                    chunk_id=cid,
+                    score=float(score),
+                    snippet=snippet[:200],
+                    metadata=self._metadata.get(cid, {}),
+                    retrieval_method="bm25",
+                )
             )
-            for cid, score in hits
-        ]
+        return results
 
     def save(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         with self._path.open("wb") as f:
-            pickle.dump({"chunk_ids": self._chunk_ids, "tokens": self._tokens}, f)
+            pickle.dump(
+                {
+                    "chunk_ids": self._chunk_ids,
+                    "tokens": self._tokens,
+                    "contents": self._contents,
+                    "metadata": self._metadata,
+                },
+                f,
+            )
 
 
 __all__ = ["BM25PersistentIndex"]

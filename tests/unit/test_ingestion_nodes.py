@@ -112,7 +112,7 @@ def test_bm25_update_node_adds_and_removes(tmp_path: Path) -> None:
     from askbook.vectorstores.bm25_index import BM25PersistentIndex
 
     idx = BM25PersistentIndex(path=tmp_path / "bm25.pkl")
-    idx.add([("c1", "old content")])
+    idx.add([("c1", "old content", {})])
     node = BM25IndexUpdateNode(index=idx, trace_writer=NullTraceWriter())
     node.run(
         _ctx(
