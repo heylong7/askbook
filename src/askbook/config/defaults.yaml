@@ -52,6 +52,9 @@ ingestion:
   embed_concurrency: 4
   vision_concurrency: 2
   chroma_concurrency: 4
+  # enrich_llm:                      # 图片描述专用 LLM（不设则跳过）
+  #   provider: openai
+  #   model: gpt-4o-mini
 
 query:
   top_k: 10

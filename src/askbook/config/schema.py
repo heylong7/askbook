@@ -39,6 +39,7 @@ class IngestionConfig(BaseModel):
     embed_concurrency: int = 4
     vision_concurrency: int = 2
     chroma_concurrency: int = 4
+    enrich_llm: LLMConfig | None = None
 
 
 class QueryConfig(BaseModel):

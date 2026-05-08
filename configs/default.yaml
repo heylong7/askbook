@@ -29,5 +29,10 @@ embedding:
   provider: bge-m3
   model: BAAI/bge-m3
 
+# ---- Ingestion 配置 ---------------------------------------------------
+# enrich_llm: 图片描述专用多模态 LLM，不设则跳过图片识别
+#   provider: openai
+#   model: gpt-4o-mini
+
 vectorstore:
   provider: chroma

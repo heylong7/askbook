@@ -28,7 +28,9 @@ def run_ingest(
 
     embedder = reg.build_embedder(cfg.embedding)
     store = reg.build_vectorstore(cfg.vectorstore)
-    llm = reg.build_llm(cfg.llm)
+    enrich_llm = None
+    if cfg.ingestion.enrich_llm is not None:
+        enrich_llm = reg.build_llm(cfg.ingestion.enrich_llm)
 
     bm25_dir = cfg.data_dir / "bm25"
     bm25_dir.mkdir(parents=True, exist_ok=True)
@@ -41,7 +43,7 @@ def run_ingest(
         embedder=embedder,
         store=store,
         bm25_index=bm25,
-        llm=llm,
+        llm=enrich_llm,
         chunk_size=cfg.ingestion.chunk_size,
         chunk_overlap=cfg.ingestion.chunk_overlap,
         vision_concurrency=cfg.ingestion.vision_concurrency,
