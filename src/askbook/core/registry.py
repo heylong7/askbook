@@ -57,9 +57,25 @@ class ServiceRegistry:
                 temperature=config.temperature,
                 max_tokens=config.max_tokens,
             )
+        if provider == "openai":
+            from askbook.providers.openai_provider import OpenAIProvider
+
+            return OpenAIProvider(
+                model=config.model,
+                temperature=config.temperature,
+                max_tokens=config.max_tokens,
+            )
+        if provider == "anthropic":
+            from askbook.providers.anthropic_provider import AnthropicProvider
+
+            return AnthropicProvider(
+                model=config.model,
+                temperature=config.temperature,
+                max_tokens=config.max_tokens,
+            )
         raise ValueError(
             f"Unknown LLM provider {config.provider!r}. "
-            "Supported: 'stub', 'ollama', 'dashscope'."
+            "Supported: 'stub', 'ollama', 'dashscope', 'openai', 'anthropic'."
         )
 
     def build_fallback_chain(self, config: Any) -> Any:
@@ -95,9 +111,17 @@ class ServiceRegistry:
                 device=config.device,
                 batch_size=config.batch_size,
             )
+        if provider == "openai":
+            from askbook.embeddings.openai_embedder import OpenAIEmbedder
+
+            return OpenAIEmbedder(model=config.model)
+        if provider == "dashscope":
+            from askbook.embeddings.dashscope_embedder import DashScopeEmbedder
+
+            return DashScopeEmbedder(model=config.model)
         raise ValueError(
             f"Unknown embedder provider {config.provider!r}. "
-            "Supported: 'stub', 'bge-m3'."
+            "Supported: 'stub', 'bge-m3', 'openai', 'dashscope'."
         )
 
     def build_vectorstore(self, config: VectorStoreConfig) -> VectorStoreABC:
