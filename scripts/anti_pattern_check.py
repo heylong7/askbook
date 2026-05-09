@@ -18,7 +18,7 @@ from pathlib import Path
 SRC_ROOT = Path(__file__).resolve().parent.parent / "src" / "askbook"
 
 FORBIDDEN_RETRIEVAL_FIELDS = {"raw_text", "full_content", "page_content"}
-MAX_MCP_TOOLS = 6
+MAX_MCP_TOOLS = 7
 
 
 @dataclass(frozen=True)
