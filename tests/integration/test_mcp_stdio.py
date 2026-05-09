@@ -106,7 +106,7 @@ def _do_initialize_handshake(proc: subprocess.Popen[bytes]) -> dict[str, Any]:
 
 
 def test_mcp_stdio_initialize_and_list_tools(tmp_path: Path) -> None:
-    """Server handshake completes and tools/list returns exactly 4 tools."""
+    """Server handshake completes and tools/list returns exactly 7 tools."""
     proc = _launch_server(tmp_path)
     try:
         # 1. Initialize handshake
@@ -134,6 +134,7 @@ def test_mcp_stdio_initialize_and_list_tools(tmp_path: Path) -> None:
             "ask",
             "list_collections",
             "get_document_summary",
+            "get_chunk_content",
             "trace_lookup",
             "collection_stats",
         }, f"Unexpected tool names: {tool_names}"

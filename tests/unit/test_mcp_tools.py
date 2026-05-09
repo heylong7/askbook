@@ -279,7 +279,7 @@ def test_handlers_never_emit_raw_text_key_in_hits(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_tool_registry_size_is_four_phase3_cap() -> None:
+def test_tool_registry_size_is_seven() -> None:
     assert set(TOOL_REGISTRY) == {
         "search",
         "ask",
