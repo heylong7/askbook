@@ -1,41 +1,48 @@
-# Hybrid Retrieval and Query Pipeline
+# 混合检索与查询管线
 
-The Query Pipeline processes user questions through a chain of nodes: query rewriting, hybrid retrieval, reranking, and answer synthesis. The core innovation is the hybrid retrieval strategy combining sparse (BM25) and dense (BGE-M3) retrieval with Reciprocal Rank Fusion (RRF).
+查询管线将用户问题经过改写、混合检索、融合排序、重排序和答案合成等多个环节，最终返回带引用的答案。核心创新是 BM25 稀疏检索 + 稠密向量检索的混合策略，用 RRF 融合两路结果。
 
-## Pipeline Nodes
-
-```
-Input: query_text, collection, top_k
-  |
-[QueryRewriterNode]       (default passthrough, optional LLM rewrite)
-  |
-[HyDENode]                (default disabled; generates hypothetical docs)
-  |
-[HybridRetrieverNode]     BM25 + BGE-M3 parallel retrieval -> top_k*2 candidates
-  |
-[RRFFusionNode]           RRF score fusion, k=60
-  |
-[CrossEncoderRerankNode]  bge-reranker-v2-m3 coarse rerank -> top_k
-  |
-[LLMFineRerankNode]       (default disabled; LLM-as-judge fine rerank)
-  |
-[AnswerSynthesizerNode]   Jinja2 prompt -> Answer with citations
-```
-
-## BM25 + Dense Retrieval
-
-BM25 is a sparse lexical retrieval algorithm based on TF-IDF. It excels at exact keyword matching and handles rare terms well. BGE-M3 is a dense multilingual embedding model that captures semantic similarity, handling synonyms and paraphrases. Together they cover both lexical precision and semantic understanding.
-
-## Reciprocal Rank Fusion (RRF)
-
-RRF merges two ranked lists without requiring score normalization. The formula is:
+## 管线节点
 
 ```
-score(d) = sum over all lists of 1 / (k + rank(d))
+输入: query_text, collection, top_k
+  |
+[QueryRewriterNode]        → （默认透传，可选 LLM 改写）
+  |
+[HyDENode]                 → （默认禁用；生成假设文档扩充查询）
+  |
+[HybridRetrieverNode]      → BM25 + 稠密向量并行检索，各取 top_k*2
+  |
+[RRFFusionNode]            → RRF 分数融合，k=60
+  |
+[CrossEncoderRerankNode]   → bge-reranker-v2-m3 粗排，截断到 top_k
+  |
+[LLMFineRerankNode]        → （默认禁用；LLM 精细重排序）
+  |
+[AnswerSynthesizerNode]    → Jinja2 模板 → LLM 合成 + 引用标注
 ```
 
-where k=60 is the standard smoothing constant. RRF only depends on ranking positions, making it robust for heterogeneous retrieval systems where absolute scores (BM25 vs cosine similarity) are not comparable. When one list ranks a document high and the other ranks it low, RRF produces a balanced compromise score.
+## BM25 + 稠密检索
 
-## Two-Stage Reranking
+- **BM25**：基于 TF-IDF 的稀疏词法检索，擅长精确关键词匹配和处理低频术语
+- **稠密向量**：BGE-M3 / text-embedding-v3 等多语言嵌入模型，捕捉语义相似度，处理同义词和改写
+- 两路并行检索，各自返回 top_k*2 候选，合并后进入融合
 
-The Cross-Encoder (bge-reranker-v2-m3) jointly encodes (query, passage) pairs for more accurate relevance scoring. Unlike Bi-Encoders which pre-compute passage embeddings, Cross-Encoders process each pair independently, making them slower but more accurate -- ideal for reranking a small candidate set. An optional second stage uses an LLM as a judge for fine-grained relevance assessment.
+## Reciprocal Rank Fusion（RRF）
+
+RRF 合并两个排序列表，不依赖绝对分数：
+
+```
+score(d) = Σ 1 / (k + rank(d))
+```
+
+k=60 为标准平滑常数。RRF 仅依赖排序位置，适合 BM25 和余弦相似度这两种异构分数的融合。当两路对同一文档排名分歧时，RRF 给出折中结果。
+
+## 两级重排序
+
+- **Cross-Encoder（bge-reranker-v2-m3）**：联合编码 (query, passage) 对，精度高于双编码器。对融合后的候选集逐一打分，截断到 top_k
+- **LLM Fine Rerank（可选）**：用 LLM 对 top_k 做精细相关性判断，默认关闭（需 `enable_llm_rerank: true`）
+
+## HyDE（假设文档嵌入）
+
+开启后（`enable_hyde: true`），LLM 先根据问题生成一篇假设回答文档，用该文档的嵌入向量替代原始问题进行检索。适合问题短、文档长的场景。

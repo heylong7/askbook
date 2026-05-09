@@ -118,7 +118,9 @@ class ServiceRegistry:
         if provider == "dashscope":
             from askbook.embeddings.dashscope_embedder import DashScopeEmbedder
 
-            return DashScopeEmbedder(model=config.model)
+            return DashScopeEmbedder(
+                model=config.model, batch_size=config.batch_size
+            )
         raise ValueError(
             f"Unknown embedder provider {config.provider!r}. "
             "Supported: 'stub', 'bge-m3', 'openai', 'dashscope'."

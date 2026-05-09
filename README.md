@@ -60,8 +60,8 @@ uv run askbook ingest /path/to/single.pdf --collection my-docs
 ### 6. 提问
 
 ```bash
-uv run askbook query ask "如何配置 Ollama？" --collection demo
-uv run askbook query search "混合检索原理" --collection demo   # 只检索，不调 LLM
+uv run askbook query "如何配置 Ollama？" --collection demo
+uv run askbook query "混合检索原理" --collection demo
 ```
 
 ---
@@ -98,7 +98,7 @@ uv run askbook query search "混合检索原理" --collection demo   # 只检索
 └──────────────────────────────────────────────────────────┘
   │
   ▼
-├── CLI:     uv run askbook query ask "xxx" --collection demo
+├── CLI:     uv run askbook query "xxx" --collection demo
 ├── MCP:     uv run askbook serve --collection demo
 └── Web:     uv run askbook dashboard (Streamlit)
 ```
@@ -333,12 +333,13 @@ uv run askbook serve --collection demo
 }
 ```
 
-### 可用 MCP 工具（6 个）
+### 可用 MCP 工具（7 个）
 
 | 工具 | 类型 | 说明 |
 |------|------|------|
 | `search` | 核心 | 关键词 + 语义混合搜索，返回排序片段 + chunk_id |
 | `ask` | 核心 | 完整 RAG 问答，返回答案 + 引用来源 |
+| `get_chunk_content` | 核心 | 按 chunk_id 获取完整 chunk 内容 |
 | `list_collections` | 核心 | 列出所有 collection 及 chunk 数 |
 | `get_document_summary` | 核心 | 指定文档的 chunk 数、来源路径、内容预览 |
 | `collection_stats` | 诊断 | Collection 详细统计（chunk 数 / 文档数 / 磁盘大小） |

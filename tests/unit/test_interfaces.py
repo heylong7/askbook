@@ -118,6 +118,7 @@ def test_vectorstore_abstract_methods() -> None:
         "list_collections",
         "get_collection_stats",
         "get_document_chunks",
+        "get_chunk_by_id",
     }
 
 
@@ -145,6 +146,9 @@ def test_vectorstore_collection_name_helper() -> None:
 
         def get_document_chunks(self, doc_id, collection):  # type: ignore[no-untyped-def]
             return []
+
+        def get_chunk_by_id(self, chunk_id, collection):  # type: ignore[no-untyped-def]
+            return None
 
     d = Dummy()
     name = d.make_collection_name("notes", "BAAI/bge-m3")

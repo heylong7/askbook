@@ -1,43 +1,65 @@
-# MCP Server and Tool Contracts
+# MCP Server 与工具协议
 
-askbook exposes its knowledge base as an MCP (Model Context Protocol) server running in stdio mode. This allows AI assistants like Claude Desktop and GitHub Copilot to directly query private documents through standardized tool calls.
+askbook 以 MCP（Model Context Protocol）stdio 模式暴露知识库，Claude Desktop 等 AI 助手可通过标准化工具调用直接查询私有文档。
 
-## Architecture
+## 架构
 
-The MCP server uses Python's MCP SDK with stdio transport. stdout is reserved for JSON-RPC messages; all logging goes to stderr. The server is started via `askbook serve --collection <name>`.
+服务端基于 Python MCP SDK，通过 stdio 传输。stdout 留给 JSON-RPC 消息，日志全部输出到 stderr。启动方式：
 
-## Six Tools
+```bash
+uv run askbook serve --collection <name> [--config <path>]
+```
 
-The server registers six tools, following the principle of minimal but sufficient surface area:
+## 七个工具
 
-### Core Tools
+服务端注册七个工具，分为核心工具和诊断工具两类：
 
-1. **search** -- Semantic search returning ranked snippets. Input: query, collection, top_k (1-20).
-2. **ask** -- Full RAG Q&A with LLM-synthesized answer and citations. Input: question, collection, top_k (1-10).
-3. **list_collections** -- List all available Chroma collections.
-4. **get_document_summary** -- View summary metadata for a specific document by doc_id.
+### 核心工具
 
-### Diagnostic Tools
+| 工具 | 功能 | 输入 |
+|------|------|------|
+| **search** | 关键词+语义混合搜索，返回排序片段及 chunk_id | query, collection, top_k (1-20) |
+| **ask** | 完整 RAG 问答，返回 LLM 合成答案及引用来源 | question, collection, top_k (1-10) |
+| **get_chunk_content** | 按 chunk_id 获取完整 chunk 内容 | chunk_id, collection（可选） |
+| **list_collections** | 列出所有 collection 及 chunk 数 | collection（可选） |
+| **get_document_summary** | 按 doc_id 查看文档摘要（chunk 数、来源路径、内容预览） | doc_id, collection（可选） |
 
-5. **explain_retrieval** -- Show which chunks were retrieved and why, for debugging retrieval quality.
-6. **health_check** -- Return health status of LLM, ChromaDB, and BM25 index components.
+### 诊断工具
 
-## ToolResponse Envelope
+| 工具 | 功能 | 输入 |
+|------|------|------|
+| **collection_stats** | Collection 详细统计（chunk 数、文档数、磁盘大小） | collection（可选） |
+| **trace_lookup** | 按 trace_id 查询链路事件，或列出最近事件 | trace_id（可选）, limit, days |
 
-All tools return a consistent `ToolResponse` structure:
+## ToolResponse 信封
+
+所有工具返回统一的 `ToolResponse` 结构：
 
 ```json
 {
   "status": "success",
-  "summary": "Found 3 result(s) for 'RAG'.",
+  "summary": "找到 3 条关于 'RAG' 的结果。",
   "data": {},
   "source_ids": ["chunk_1", "chunk_2"],
   "next_actions": []
 }
 ```
 
-A pydantic model_validator enforces that `status=success` requires non-empty `source_ids`. If retrieval yields no results, the tool must return `status=warning`. This prevents hallucinated completions where the LLM fabricates answers without source support.
+pydantic model_validator 强制要求：`status=success` 必须附带非空 `source_ids`。检索无结果时必须返回 `status=warning`，防止 LLM 在无依据的情况下生成幻觉答案。
 
-## Claude Desktop Integration
+## Claude Desktop 集成
 
-Add the server configuration to Claude Desktop's MCP settings file. The server command uses `uv run askbook serve --collection demo`. Restart Claude Desktop to see the six askbook tools available in conversations.
+在 Claude Desktop 的 MCP 设置中添加：
+
+```json
+{
+  "mcpServers": {
+    "askbook": {
+      "command": "uv",
+      "args": ["run", "askbook", "serve", "--collection", "docs"]
+    }
+  }
+}
+```
+
+重启 Claude Desktop 后即可在对话中使用 askbook 工具。

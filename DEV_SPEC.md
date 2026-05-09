@@ -604,7 +604,7 @@ jobs:
 
 **核心差异化：**
 - **纯本地运行**：Ollama + BGE-M3，零云端依赖，数据不出机器
-- **MCP 原生**：6 个工具（4 核心 + 2 诊断），stdio 协议，开箱接入 Claude Desktop
+- **MCP 原生**：7 个工具（5 核心 + 2 诊断），stdio 协议，开箱接入 Claude Desktop
 - **全链路可观测**：JSONL Trace + 5 页 Streamlit Dashboard
 - **Harness 质量门禁**：4 项 SLO 健康指标 + 6 种反模式 CI 检查
 - **可插拔架构**：LLM / Embedder / VectorStore / Evaluator 全部可替换
@@ -616,7 +616,7 @@ jobs:
 > - **两段式精排**：Cross-Encoder (bge-reranker-v2-m3) 粗排 + LLM-as-judge 精排，P90 Recall@5 > 85%
 > - **多模态增强**：Vision LLM 自动为图片生成文字描述并注入 chunk，无需 CLIP 即可处理图文混合文档
 > - **全链路 Trace**：JSONL 结构化日志 + Streamlit Dashboard，可视化每个节点的耗时和 Token 消耗
-> - **MCP 集成**：6 个工具（4 核心 + 2 诊断），stdio 模式，开箱接入 Claude Desktop
+> - **MCP 集成**：7 个工具（5 核心 + 2 诊断），stdio 模式，开箱接入 Claude Desktop
 
 ### 简历一句话定位
 

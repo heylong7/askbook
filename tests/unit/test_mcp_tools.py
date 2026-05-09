@@ -285,7 +285,8 @@ def test_tool_registry_size_is_four_phase3_cap() -> None:
         "ask",
         "list_collections",
         "get_document_summary",
+        "get_chunk_content",
         "trace_lookup",
         "collection_stats",
     }
-    assert len(TOOL_REGISTRY) == 6
+    assert len(TOOL_REGISTRY) == 7

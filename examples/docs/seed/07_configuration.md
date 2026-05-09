@@ -1,37 +1,54 @@
-# Configuration System
+# 配置体系
 
-askbook uses a three-tier configuration strategy: YAML files for structured settings, `.env` for secrets, and pydantic-settings for startup validation.
+askbook 采用三层配置策略：YAML 文件定义结构化设置、环境变量注入密钥、pydantic 模型在启动时校验。
 
-## Three-Tier Strategy
+## 三层架构
 
-1. **YAML configuration files** define all non-secret settings: LLM provider, model names, chunk sizes, collection names, and pipeline parameters. Multiple YAML files support different environments (local Ollama vs cloud DashScope).
-2. **`.env` file** injects secrets like API keys as environment variables. This file is gitignored and never committed.
-3. **pydantic-settings** validates all configuration at startup with strict type checking. Invalid configs fail fast with field-level error messages.
+1. **YAML 配置文件**：定义所有非敏感设置。支持多份 YAML 适配不同环境（本地 Ollama vs 云端百炼）
+2. **环境变量**：注入 API Key 等密钥，使用 `ASKBOOK_` 前缀，双下划线表示嵌套
+3. **pydantic 校验**：启动时对所有配置做严格类型检查，无效配置立即报错并指明字段
 
-## Environment Variable Override
+## 环境变量覆盖
 
-Environment variables use the prefix `ASKBOOK_` with double-underscore nesting:
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `ASKBOOK_DATA_DIR` | `~/.askbook` | 数据和 BM25 索引目录 |
+| `ASKBOOK_LLM__PROVIDER` | `ollama` | LLM 后端 |
+| `ASKBOOK_LLM__MODEL` | `qwen2.5:7b` | LLM 模型名 |
+| `ASKBOOK_EMBEDDING__PROVIDER` | `bge-m3` | Embedding 后端 |
+| `ASKBOOK_VECTORSTORE__PATH` | `~/.askbook/chroma` | ChromaDB 存储路径 |
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ASKBOOK_LLM__PROVIDER` | `ollama` | LLM provider (ollama, dashscope, openai) |
-| `ASKBOOK_EMBEDDING__PROVIDER` | `bge-m3` | Embedding model provider |
-| `ASKBOOK_VECTORSTORE__PATH` | `~/.askbook/chroma` | ChromaDB storage path |
-| `ASKBOOK_DATA_DIR` | `~/.askbook` | BM25 index and runtime data directory |
+## 配置域
 
-## Configuration Sections
+主配置文件覆盖以下域：
 
-The main `default.yaml` covers eight configuration domains:
+- **llm**：provider、model、temperature、max_tokens、fallback_chain、quota_per_hour
+- **embedding**：provider、model、normalize、device、batch_size
+- **vectorstore**：provider（chroma）、持久化路径
+- **ingestion**：chunk_size、chunk_overlap、embed_concurrency、vision_concurrency、chroma_concurrency、enrich_llm（可选）
+- **query**：top_k、rerank_top_k、rrf_k、enable_rewrite、enable_hyde、enable_llm_rerank
+- **mcp**：transport、system_prompt_max_tokens
+- **observability**：trace_dir、flush_interval_seconds、pii_redaction、enabled、retention_days、dashboard_port
 
-- **llm**: provider, model, temperature, max_tokens, fallback chain, quota limits
-- **embedding**: model name, normalization, device (cpu/cuda/mps), batch size
-- **reranker**: coarse Cross-Encoder model, fine LLM rerank toggle
-- **vectorstore**: provider (chroma), persist directory, schema version
-- **ingestion**: splitter type, chunk_size (512), chunk_overlap (64), enrichment toggles, concurrency limits
-- **query**: top_k, BM25/dense RRF weights, rewriter and HyDE toggles
-- **mcp**: allowed path whitelist, max results per query
-- **observability**: trace mode (async/sync), PII redaction patterns, retention days, dashboard port
+## LLM 后端
 
-## Provider Fallback Chain
+| Provider | 说明 | 所需环境变量 |
+|----------|------|-------------|
+| `ollama` | 本地 Ollama | 无 |
+| `dashscope` | 阿里云百炼 | `DASHSCOPE_API_KEY` |
+| `openai` | OpenAI | `OPENAI_API_KEY` |
+| `anthropic` | Anthropic | `ANTHROPIC_API_KEY` |
+| `stub` | 测试桩 | 无 |
 
-The LLM configuration supports a fallback chain for high availability. If the primary provider times out or returns an error, the system automatically tries the next provider in the chain. For example: primary DashScope with fallback to local Ollama.
+## Embedding 后端
+
+| Provider | 说明 | 所需环境变量 |
+|----------|------|-------------|
+| `bge-m3` | 本地 BGE-M3 | 无 |
+| `openai` | OpenAI Embeddings | `OPENAI_API_KEY` |
+| `dashscope` | 百炼 TextEmbedding | `DASHSCOPE_API_KEY` |
+| `stub` | 测试桩 | 无 |
+
+## Fallback 链
+
+LLM 配置支持 fallback_chain（数组），当主 provider 超时或出错时自动切换到下一个。例如：主用百炼，fallback 到本地 Ollama。

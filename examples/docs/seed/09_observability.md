@@ -1,41 +1,43 @@
-# Observability and Tracing
+# 可观测性与链路追踪
 
-askbook implements full-chain observability through asynchronous JSONL tracing, without requiring external APM services like LangSmith or Grafana. Every pipeline node automatically reports span events with timing, token usage, and cost data.
+askbook 通过异步 JSONL 链路追踪实现全链路可观测，无需外部 APM 服务。每个 Pipeline 节点自动上报 span 事件，包含耗时、Token 消耗和成本数据。
 
-## JSONL Trace Format
+## JSONL Trace 格式
 
-Trace events are appended to daily-sharded JSONL files at `~/.askbook/traces/YYYY-MM-DD.jsonl`. Each event is a self-contained JSON object:
+Trace 事件追加写入按日分片的 JSONL 文件：`~/.askbook/traces/YYYY-MM-DD.jsonl`。每个事件是自包含的 JSON 对象：
 
-- **trace_id**: UUID identifying a single pipeline execution
-- **span_id**: unique identifier for this node execution
-- **parent_span_id**: parent node (null for root)
-- **event_type**: span_start, span_end, or error
-- **node_name**: pipeline node identifier
-- **timestamp_utc**: ISO 8601 timestamp
-- **duration_ms**: elapsed time (span_end only)
-- **tags**: node-specific metadata (token counts, chunk counts, model info)
-- **prompt_template_hash**: SHA256 of the rendered prompt template, for tracking prompt changes
-- **error**: exception message if the span failed
+- **trace_id**：标识单次管线执行的 UUID
+- **span_id**：本次节点执行的唯一标识
+- **parent_span_id**：父节点（根节点为 null）
+- **event_type**：`span_start`、`span_end` 或 `error`
+- **node_name**：Pipeline 节点标识
+- **timestamp_utc**：ISO 8601 时间戳
+- **duration_ms**：耗时（仅 span_end）
+- **tags**：节点元数据（Token 数、chunk 数、模型信息等）
+- **error**：异常消息（仅 error 事件）
 
-## Async Trace Writer
+## 异步 Trace Writer
 
-The AsyncTraceWriter uses a background daemon thread with an internal queue. Span events are enqueued during pipeline execution and written asynchronously to avoid blocking the hot path. An `atexit` handler ensures the queue is drained on process exit.
+AsyncTraceWriter 使用后台守护线程 + 内部队列。span 事件在管线执行期间入队，异步写入磁盘，不阻塞热路径。`atexit` 处理器确保进程退出前排空队列。
 
-Key configuration options:
-- `observability.enabled` (bool, default true): set to false to short-circuit all trace writing
-- `observability.trace_dir` (path): JSONL file storage directory
-- `observability.retention_days` (int, default 7): automatically delete trace files older than N days
-- `observability.pii_redaction` (bool, default true): redact phone numbers, emails, and token strings before writing
+配置项：
+- `observability.enabled`（默认 true）：设为 false 可完全跳过 trace 写入
+- `observability.trace_dir`：JSONL 文件存储目录
+- `observability.retention_days`（默认 7）：自动删除 N 天前的 trace 文件
+- `observability.pii_redaction`（默认 true）：写入前脱敏手机号、邮箱和 Token
+- `observability.flush_interval_seconds`（默认 1.0）：队列刷新间隔
 
-## PII Redaction
+## PII 脱敏
 
-Before writing to disk, trace events pass through a regex-based redaction filter that masks:
-- Chinese mobile phone numbers (11 digits)
-- Email addresses
-- API token patterns
+Trace 事件写入磁盘前，经过正则脱敏过滤器屏蔽：
+- 中国大陆手机号（11 位）
+- 邮箱地址
+- API Token 模式
 
-This prevents accidentally persisting sensitive user data in trace logs.
+避免敏感用户数据泄漏到 trace 日志中。
 
-## Trace in Pipeline Nodes
+## Pipeline 节点的自动 Trace
 
-BasePipelineNode's `__call__` method automatically creates a span context manager. Subclasses only implement `run()`; the base class handles span lifecycle (start, end, error). Optional `before_run()` and `after_run()` hooks allow nodes to attach custom tags to spans. The `original_query` field in QuerySpan preserves the user's input before any rewriting, enabling drift detection in the Dashboard's rewrite diff view.
+BasePipelineNode 的 `__call__` 方法自动创建 span 上下文管理器。子类只需实现 `run()`，基类处理 span 生命周期（start、end、error）。可选的 `before_run()` 和 `after_run()` 钩子让节点向 span 附加自定义标签。
+
+QuerySpan 中的 `original_query` 字段保留用户改写前的原始输入，Dashboard 的 Rewrite Diff 视图利用该字段检测改写漂移。

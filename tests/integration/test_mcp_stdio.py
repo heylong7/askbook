@@ -124,9 +124,9 @@ def test_mcp_stdio_initialize_and_list_tools(tmp_path: Path) -> None:
         result = tools_resp.get("result", {})
         tools = result.get("tools", [])
 
-        # Harness: exactly 6 tools (4 core + 2 diagnostic)
+        # Harness: exactly 7 tools (4 core + 3 diagnostic)
         tool_name_list = [t.get("name") for t in tools]
-        assert len(tools) == 6, f"Expected 6 tools, got {len(tools)}: {tool_name_list}"
+        assert len(tools) == 7, f"Expected 7 tools, got {len(tools)}: {tool_name_list}"
 
         tool_names = {t["name"] for t in tools}
         assert tool_names == {

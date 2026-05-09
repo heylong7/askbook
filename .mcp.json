@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "askbook": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "E:/demo/askbook",
+        "askbook",
+        "serve",
+        "--config",
+        "configs/bailian.yaml"
+      ]
+    }
+  }
+}

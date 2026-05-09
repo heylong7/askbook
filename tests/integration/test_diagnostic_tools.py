@@ -6,8 +6,8 @@ from askbook.mcp_server.tools import TOOL_REGISTRY
 
 
 def test_mcp_tool_count_is_exactly_6() -> None:
-    """TOOL_REGISTRY has exactly 6 tools (4 core + 2 diagnostic)."""
-    assert len(TOOL_REGISTRY) == 6, f"Expected 6, got {len(TOOL_REGISTRY)}"
+    """TOOL_REGISTRY has exactly 7 tools (4 core + 3 diagnostic)."""
+    assert len(TOOL_REGISTRY) == 7, f"Expected 7, got {len(TOOL_REGISTRY)}"
 
 
 def test_trace_lookup_input_model() -> None:

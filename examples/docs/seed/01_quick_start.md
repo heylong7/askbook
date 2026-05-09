@@ -1,62 +1,83 @@
-# Quick Start
+# 快速开始
 
-askbook is a private knowledge base RAG system + MCP Server that runs locally. It supports Ollama local LLM and exposes MCP tools via stdio mode for direct invocation by Claude Desktop.
+askbook 是一个本地私有知识库 RAG 系统 + MCP Server。支持多种 LLM 和 Embedding 后端，通过 stdio 模式暴露 MCP 工具供 Claude Desktop 等 AI 助手直接调用。
 
-## Installation
+## 环境要求
 
-Requirements: Python 3.12+, uv package manager, and Ollama running locally.
+Python 3.12+、uv 包管理器。如需本地模型还需安装 Ollama。
+
+## 安装
 
 ```bash
+git clone <repo>
+cd askbook
 uv sync --all-extras
-cp .env.example .env
 ```
 
-Edit `.env` to configure your Ollama host address and model preferences. The default configuration uses `ollama` as the LLM provider and `bge-m3` as the embedding model, both running locally at zero API cost.
-
-## Basic Usage
-
-### 1. Import Documents
+配置 API Key（使用百炼或 OpenAI 时需要）：
 
 ```bash
-# Import a single file into a named collection
-askbook ingest path/to/doc.pdf --collection demo
-
-# Import an entire directory recursively (supports .pdf / .txt / .md)
-askbook ingest docs/ --collection my-notes
-
-# List all available collections
-askbook ingest --list
+export DASHSCOPE_API_KEY="your-key"
+export OPENAI_API_KEY="your-key"
 ```
 
-### 2. Command-Line Query
+## 基本用法
+
+### 1. 入库文档
 
 ```bash
-# Semantic search returning snippets
-askbook query search "what is RAG?" --collection demo
+# 入库单个文件到指定 collection
+uv run askbook ingest path/to/doc.md --collection my-docs
 
-# Full RAG Q&A with LLM-synthesized answers and citations
-askbook query ask "how to evaluate retrieval quality?" --collection demo
+# 入库整个目录（支持 .md / .txt / .pdf / .docx）
+uv run askbook ingest docs/ --collection my-docs
 
-# View collection information
-askbook query list-collections
+# 指定配置文件
+uv run askbook ingest docs/ --collection my-docs --config configs/bailian.yaml
+
+# 强制重建索引
+uv run askbook ingest docs/ --collection my-docs --force-reindex
 ```
 
-### 3. Start MCP Server
+### 2. 命令行查询
 
 ```bash
-# Start in stdio mode for Claude Desktop
-askbook serve --collection demo
+# 直接提问
+uv run askbook query "什么是 RAG？" --collection my-docs
 
-# Specify a custom config file
-askbook serve --collection demo --config ~/.askbook/config.yaml
+# 调整返回数量
+uv run askbook query "如何评估检索质量？" --collection my-docs --top-k 10
 ```
 
-### 4. Development
+### 3. 启动 MCP Server
 
 ```bash
-# Run all tests
+# stdio 模式（供 Claude Desktop 调用）
+uv run askbook serve --collection my-docs
+
+# 指定配置
+uv run askbook serve --collection my-docs --config configs/bailian.yaml
+```
+
+### 4. 其他命令
+
+```bash
+# 启动 Streamlit 看板
+uv run askbook dashboard
+
+# 运行评估
+uv run askbook eval --collection my-docs
+
+# 垃圾回收（清理孤立 chunk、过期 trace）
+uv run askbook gc
+```
+
+### 5. 开发
+
+```bash
+# 运行测试
 uv run pytest -q
 
-# Quality gate (ruff + mypy + pytest + coverage >= 80%)
+# 完整质量检查
 uv run ruff check . && uv run ruff format --check . && uv run mypy --strict src/ && uv run pytest --cov=src/askbook --cov-fail-under=80 -q
 ```

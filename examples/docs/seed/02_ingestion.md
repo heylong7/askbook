@@ -1,37 +1,54 @@
-# Document Ingestion Pipeline
+# 文档入库管线
 
-The Ingestion Pipeline transforms raw documents (PDF, Markdown, DOCX, TXT) into searchable chunks stored in ChromaDB and a BM25 index. It runs as a synchronous CLI process with a 7-node pipeline.
+入库管线将原始文档（PDF、Markdown、DOCX、TXT）转换为可检索的 chunk，存入 ChromaDB 和 BM25 索引。这是一个同步 CLI 批处理流程，包含 7 个 Pipeline 节点。
 
-## Pipeline Nodes
+## 管线节点
 
 ```
-Input: source_path
+输入: source_path
   |
-[DocumentLoaderNode]  -> Document (MarkItDown converts to Markdown)
+[DocumentLoaderNode]   → Document（MarkItDown 将各类格式转为 Markdown）
   |
-[SplitterNode]        -> list[Chunk] (recursive character split with overlap)
+[SplitterNode]         → list[Chunk]（递归字符分割 + 重叠窗口）
   |
-[EnrichmentNode]      -> list[Chunk] (image descriptions stitched in, metadata injected)
+[EnrichmentNode]       → list[Chunk]（多模态图片描述注入 + 元数据增强）
   |
-[DedupNode]           -> (new_chunks, stale_chunk_ids)
+[DedupNode]            → (new_chunks, stale_chunk_ids)
   |
-[EmbeddingNode]       -> list[Chunk] (BGE-M3 dense embeddings)
+[EmbeddingNode]        → list[Chunk]（稠密向量嵌入）
   |
-[VectorStoreWriteNode] -> upsert new chunks, delete stale chunks from Chroma
+[VectorStoreWriteNode] → 新 chunk 写入 Chroma，删除过期 chunk
   |
-[BM25IndexUpdateNode] -> update persistent BM25 pickle index
+[BM25IndexUpdateNode]  → 更新持久化 BM25 pickle 索引
   |
-Output: IngestionResult
+输出: IngestionResult
 ```
 
-## SHA256-Based Deduplication
+## SHA256 去重
 
-The deduplicator computes a SHA256 hash of each chunk's content. Chunks that already exist in the target collection are skipped (reused). Chunks from a previously ingested version of the same source file that no longer appear in the new version are flagged as stale and soft-deleted from ChromaDB. This prevents zombie data accumulation.
+对每个 chunk 的内容计算 SHA256 哈希。已在目标 collection 中的 chunk 会被跳过（复用）。同一源文件在旧版本中存在但新版本中消失的 chunk 被标记为过期，从 ChromaDB 中软删除，防止僵尸数据积累。
 
-## Key Design Decisions
+关键 ID 生成规则：
+- **doc_id**：SHA256(绝对路径 + mtime_ns)，保证重复入库幂等
+- **chunk_id**：SHA256(doc_id + chunk_index + content)，全局唯一
 
-- **doc_id** is SHA256 of (absolute path + mtime_ns), ensuring idempotent re-ingestion.
-- **chunk_id** is SHA256 of (doc_id + chunk_index + content), guaranteeing unique identification.
-- **Soft delete** queries existing chunks by source_path, computes the diff, and removes only stale entries.
-- **Enrichment** passes through by default in v0.1; Vision LLM image description is planned for v0.5.
-- **Concurrency** uses three independent semaphores for embedding, vision LLM, and Chroma writes.
+## 分割策略
+
+支持两种分割器（通过 `SplitterProtocol` 注册）：
+
+- **RecursiveTextSplitter**：递归字符分割，默认 chunk_size=600、chunk_overlap=80。按段落 → 句子 → 词的优先级逐级切分
+- **SemanticSplitter**：基于嵌入相似度的语义分割，当相邻句子的余弦相似度低于阈值时切分。支持中英文混合分句
+
+## 多模态增强
+
+EnrichmentNode 在入库时对文档中的图片进行多模态处理：
+- 提取文档中的图片，调用视觉 LLM（需配置 `ingestion.enrich_llm`）生成文字描述
+- 将描述注入到对应 chunk 的内容中，使图片信息可被文本检索命中
+- 未配置 enrich_llm 时跳过图片处理，不阻塞入库
+
+## 并发控制
+
+三个独立信号量分别控制嵌入、视觉 LLM 和 Chroma 写入的并发数：
+- `embed_concurrency`（默认 4）
+- `vision_concurrency`（默认 2）
+- `chroma_concurrency`（默认 4）

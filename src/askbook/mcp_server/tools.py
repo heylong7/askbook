@@ -26,6 +26,8 @@ from askbook.mcp_server.contracts import (
     CollectionStatsData,
     CollectionStatsInput,
     DocumentSummaryData,
+    GetChunkContentData,
+    GetChunkContentInput,
     GetDocumentSummaryInput,
     ListCollectionsInput,
     SearchHit,
@@ -332,6 +334,52 @@ def handle_collection_stats(
 
 
 # ---------------------------------------------------------------------------
+# handle_get_chunk_content
+# ---------------------------------------------------------------------------
+
+
+def handle_get_chunk_content(
+    inp: GetChunkContentInput, deps: ServerDeps
+) -> ToolResponse:
+    """Return the full content of a single chunk by chunk_id."""
+    with deps.trace_writer.span("mcp.get_chunk_content") as span:
+        span.set_attribute("collection", inp.collection)
+        span.set_attribute("chunk_id", inp.chunk_id)
+
+        collection = deps.store.make_collection_name(
+            namespace=inp.collection, embed_model=deps.embedder.model_name
+        )
+        chunk = deps.store.get_chunk_by_id(inp.chunk_id, collection)
+
+        if chunk is None:
+            response = ToolResponse(
+                status="warning",
+                summary=f"Chunk '{inp.chunk_id}' not found in collection '{inp.collection}'.",
+                source_ids=[],
+            )
+            span.set_attribute("status", response.status)
+            span.set_attribute("source_ids", response.source_ids)
+            return response
+
+        data = GetChunkContentData(
+            chunk_id=chunk.chunk_id,
+            doc_id=chunk.doc_id,
+            content=chunk.content,
+            source_path=str(chunk.metadata.get("source_path", "")),
+        )
+
+        response = ToolResponse(
+            status="success",
+            summary=f"Chunk '{inp.chunk_id}' retrieved ({len(chunk.content)} chars).",
+            data=data.model_dump(),
+            source_ids=[chunk.chunk_id],
+        )
+        span.set_attribute("status", response.status)
+        span.set_attribute("source_ids", response.source_ids)
+        return response
+
+
+# ---------------------------------------------------------------------------
 # TOOL_REGISTRY
 # ---------------------------------------------------------------------------
 
@@ -342,6 +390,7 @@ TOOL_REGISTRY: dict[
     "ask": (AskInput, handle_ask),
     "list_collections": (ListCollectionsInput, handle_list_collections),
     "get_document_summary": (GetDocumentSummaryInput, handle_get_document_summary),
+    "get_chunk_content": (GetChunkContentInput, handle_get_chunk_content),
     "trace_lookup": (TraceLookupInput, handle_trace_lookup),
     "collection_stats": (CollectionStatsInput, handle_collection_stats),
 }
@@ -353,6 +402,7 @@ __all__ = [
     "handle_ask",
     "handle_list_collections",
     "handle_get_document_summary",
+    "handle_get_chunk_content",
     "handle_trace_lookup",
     "handle_collection_stats",
     "TOOL_REGISTRY",

@@ -6,7 +6,8 @@ llm:
 
 # embedding 也可切 dashscope: text-embedding-v3
 embedding:
-  provider: bge-m3           # embedding 仍走本地 bge-m3，零成本
+  provider: dashscope
+  model: text-embedding-v3
 
 query:
   top_k: 10

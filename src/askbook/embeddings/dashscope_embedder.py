@@ -7,11 +7,16 @@ import os
 from askbook.core.exceptions import ProviderError
 
 
+_MAX_BATCH_SIZE = 10
+
 class DashScopeEmbedder:
     """DashScope text-embedding provider.
 
     Lazily computes dimension from the first API response, so
     dimension is not available until an embed_* method is called.
+
+    DashScope limits each call to at most 10 texts, so larger batches
+    are automatically split into sub-batches internally.
     """
 
     model_name: str
@@ -21,10 +26,12 @@ class DashScopeEmbedder:
         *,
         model: str = "text-embedding-v3",
         api_key: str | None = None,
+        batch_size: int = _MAX_BATCH_SIZE,
     ) -> None:
         self.model_name = model
         self._api_key = api_key or os.environ.get("DASHSCOPE_API_KEY", "")
         self._dimension: int | None = None
+        self._batch_size = min(batch_size, _MAX_BATCH_SIZE)
         try:
             import dashscope
 
@@ -57,18 +64,22 @@ class DashScopeEmbedder:
                 "dashscope", "dashscope SDK not installed"
             ) from exc
 
-        resp = TextEmbedding.call(model=self.model_name, input=texts)
-        if resp.status_code != 200:
-            raise ProviderError(
-                "dashscope",
-                f"HTTP {resp.status_code}: {getattr(resp, 'message', '')}",
-            )
-        embeddings = [
-            item["embedding"] for item in resp.output["embeddings"]
-        ]
-        if embeddings and self._dimension is None:
-            self._dimension = len(embeddings[0])
-        return embeddings
+        all_embeddings: list[list[float]] = []
+        for i in range(0, len(texts), self._batch_size):
+            batch = texts[i : i + self._batch_size]
+            resp = TextEmbedding.call(model=self.model_name, input=batch)
+            if resp.status_code != 200:
+                raise ProviderError(
+                    "dashscope",
+                    f"HTTP {resp.status_code}: {getattr(resp, 'message', '')}",
+                )
+            embeddings = [
+                item["embedding"] for item in resp.output["embeddings"]
+            ]
+            if embeddings and self._dimension is None:
+                self._dimension = len(embeddings[0])
+            all_embeddings.extend(embeddings)
+        return all_embeddings
 
 
 __all__ = ["DashScopeEmbedder"]

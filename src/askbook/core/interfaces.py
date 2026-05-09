@@ -149,6 +149,11 @@ class VectorStoreABC(ABC):
         """Return all chunks belonging to doc_id in collection (may be empty)."""
         ...
 
+    @abstractmethod
+    def get_chunk_by_id(self, chunk_id: str, collection: str) -> Chunk | None:
+        """Return a single chunk by its chunk_id, or None if not found."""
+        ...
+
 
 # ====================================================================
 # Pipeline primitives

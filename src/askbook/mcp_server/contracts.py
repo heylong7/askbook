@@ -100,6 +100,18 @@ class CollectionStatsData(BaseModel):
     disk_size_bytes: int
 
 
+class GetChunkContentInput(BaseModel):
+    chunk_id: str
+    collection: str = "default"
+
+
+class GetChunkContentData(BaseModel):
+    chunk_id: str
+    doc_id: str
+    content: str
+    source_path: str
+
+
 __all__ = [
     "ToolResponse",
     "SearchInput",
@@ -114,4 +126,6 @@ __all__ = [
     "TraceLookupData",
     "CollectionStatsInput",
     "CollectionStatsData",
+    "GetChunkContentInput",
+    "GetChunkContentData",
 ]
