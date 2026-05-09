@@ -40,6 +40,7 @@ jobs:
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         env:
           ASKBOOK_GOLDEN_ALLOW_SKIP: "1"
+          ASKBOOK_QUERY__ENABLE_REWRITE: "false"
         run: |
           if [ -d "examples/docs/seed" ] && [ -f "datasets/seed_manual.yaml" ]; then
             uv run pytest -m golden -v

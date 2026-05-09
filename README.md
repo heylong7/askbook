@@ -1,4 +1,7 @@
-# askbook
+
+<div align="center">
+<img src="assets/icon.png" alt="askbook icon" width="520">
+</div>
 
 本地优先的私有知识库 RAG 系统——把文档导入后，用自然语言提问，获得带原文引用的准确回答。数据全程不出机器。
 
