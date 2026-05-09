@@ -26,7 +26,7 @@ class BM25PersistentIndex:
         self._chunk_ids: list[str] = []
         self._tokens: list[list[str]] = []
         self._contents: dict[str, str] = {}
-        self._metadata: dict[str, dict] = {}
+        self._metadata: dict[str, dict[str, object]] = {}
         self._bm25: BM25Plus | None = None
         if self._path.exists():
             self._load()
@@ -43,7 +43,7 @@ class BM25PersistentIndex:
     def _rebuild(self) -> None:
         self._bm25 = BM25Plus(self._tokens) if self._tokens else None
 
-    def add(self, items: list[tuple[str, str, dict]]) -> None:
+    def add(self, items: list[tuple[str, str, dict[str, object]]]) -> None:
         existing = set(self._chunk_ids)
         for cid, text, metadata in items:
             if cid in existing:

@@ -86,8 +86,8 @@ selected_rows = st.dataframe(
 )
 
 # -- Selected row detail --
-if selected_rows is not None and len(selected_rows.selection.rows) > 0:
-    idx = selected_rows.selection.rows[0]
+if selected_rows is not None and len(selected_rows.selection.rows) > 0:  # type: ignore[attr-defined]
+    idx = selected_rows.selection.rows[0]  # type: ignore[attr-defined]
     event = filtered[idx]
     st.subheader(f"详情: {event.trace_id[:16]}... / {event.node_name}")
     st.json(event.tags)

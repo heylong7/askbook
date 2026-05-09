@@ -48,7 +48,7 @@ def compute_ragas_scores(
             ds,
             metrics=[faithfulness, answer_relevancy, context_precision],
         )
-        result = dict(eval_result)
+        result = dict(eval_result)  # type: ignore[call-overload]
     except Exception:
         return RagasScores(0.0, 0.0, 0.0)
 
