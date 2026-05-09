@@ -24,6 +24,7 @@ coverage.xml
 # Claude Code (local only)
 .claude/
 .mcp.json
+CLAUDE.md
 
 # IDE
 .idea/
