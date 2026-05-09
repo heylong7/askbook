@@ -354,7 +354,10 @@ def handle_get_chunk_content(
         if chunk is None:
             response = ToolResponse(
                 status="warning",
-                summary=f"Chunk '{inp.chunk_id}' not found in collection '{inp.collection}'.",
+                summary=(
+                    f"Chunk '{inp.chunk_id}' not found"
+                    f" in collection '{inp.collection}'."
+                ),
                 source_ids=[],
             )
             span.set_attribute("status", response.status)

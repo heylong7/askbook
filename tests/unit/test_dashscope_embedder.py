@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from askbook.core.interfaces import EmbedderProtocol
 from askbook.embeddings.dashscope_embedder import DashScopeEmbedder
 

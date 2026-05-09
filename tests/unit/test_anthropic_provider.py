@@ -144,12 +144,18 @@ def test_complete_raises_on_malformed_response() -> None:
 @respx.mock
 async def test_astream_yields_chunks() -> None:
     """astream() yields text chunks from SSE stream."""
+    hello = (
+        '{"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello"}}'
+    )
+    world = (
+        '{"type":"content_block_delta","delta":{"type":"text_delta","text":" world"}}'
+    )
     sse_lines = (
         "event: content_block_delta\n"
-        'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello"}}\n'
+        f"data: {hello}\n"
         "\n"
         "event: content_block_delta\n"
-        'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":" world"}}\n'
+        f"data: {world}\n"
         "\n"
     )
     respx.post("https://api.anthropic.com/v1/messages").mock(

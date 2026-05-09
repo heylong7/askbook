@@ -6,7 +6,6 @@ import os
 
 from askbook.core.exceptions import ProviderError
 
-
 _MAX_BATCH_SIZE = 10
 
 
