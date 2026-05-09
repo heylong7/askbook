@@ -80,9 +80,7 @@ def test_complete_raises_on_timeout() -> None:
 def test_complete_raises_on_unauthorized() -> None:
     """complete() raises ProviderError on 401."""
     respx.post("https://api.anthropic.com/v1/messages").mock(
-        return_value=httpx.Response(
-            401, json={"error": {"message": "Invalid API key"}}
-        )
+        return_value=httpx.Response(401, json={"error": {"message": "Invalid API key"}})
     )
     provider = AnthropicProvider(api_key="bad-key")
     provider.max_retries = 0

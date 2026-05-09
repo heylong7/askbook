@@ -41,9 +41,7 @@ _DESCRIPTIONS: dict[str, str] = {
     "get_chunk_content": (
         "Retrieve the full content of a single chunk by its chunk_id."
     ),
-    "trace_lookup": (
-        "Look up trace events by trace_id or list recent events."
-    ),
+    "trace_lookup": ("Look up trace events by trace_id or list recent events."),
     "collection_stats": (
         "Get detailed statistics for a collection (chunk count, doc count, disk size)."
     ),

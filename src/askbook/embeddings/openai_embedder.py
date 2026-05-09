@@ -58,9 +58,7 @@ class OpenAIEmbedder:
             self._endpoint, json=body, headers=headers, timeout=self._timeout
         )
         if resp.status_code != 200:
-            raise ProviderError(
-                "openai", f"HTTP {resp.status_code}: {resp.text}"
-            )
+            raise ProviderError("openai", f"HTTP {resp.status_code}: {resp.text}")
         data = resp.json()
         embeddings = [item["embedding"] for item in data["data"]]
         if embeddings and self._dimension is None:

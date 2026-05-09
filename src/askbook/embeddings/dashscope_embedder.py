@@ -9,6 +9,7 @@ from askbook.core.exceptions import ProviderError
 
 _MAX_BATCH_SIZE = 10
 
+
 class DashScopeEmbedder:
     """DashScope text-embedding provider.
 
@@ -60,9 +61,7 @@ class DashScopeEmbedder:
         try:
             from dashscope import TextEmbedding
         except ImportError as exc:
-            raise ProviderError(
-                "dashscope", "dashscope SDK not installed"
-            ) from exc
+            raise ProviderError("dashscope", "dashscope SDK not installed") from exc
 
         all_embeddings: list[list[float]] = []
         for i in range(0, len(texts), self._batch_size):
@@ -73,9 +72,7 @@ class DashScopeEmbedder:
                     "dashscope",
                     f"HTTP {resp.status_code}: {getattr(resp, 'message', '')}",
                 )
-            embeddings = [
-                item["embedding"] for item in resp.output["embeddings"]
-            ]
+            embeddings = [item["embedding"] for item in resp.output["embeddings"]]
             if embeddings and self._dimension is None:
                 self._dimension = len(embeddings[0])
             all_embeddings.extend(embeddings)

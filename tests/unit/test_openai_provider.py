@@ -84,9 +84,7 @@ def test_complete_raises_on_timeout() -> None:
 def test_complete_raises_on_unauthorized() -> None:
     """complete() raises ProviderError on 401."""
     respx.post("https://api.openai.com/v1/chat/completions").mock(
-        return_value=httpx.Response(
-            401, json={"error": {"message": "Invalid API key"}}
-        )
+        return_value=httpx.Response(401, json={"error": {"message": "Invalid API key"}})
     )
     provider = OpenAIProvider(api_key="bad-key")
     provider.max_retries = 0
@@ -155,9 +153,9 @@ def test_complete_raises_on_malformed_response() -> None:
 async def test_astream_yields_chunks() -> None:
     """astream() yields content chunks from SSE stream."""
     sse_lines = (
-        "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}\n"
+        'data: {"choices":[{"delta":{"content":"Hello"}}]}\n'
         "\n"
-        "data: {\"choices\":[{\"delta\":{\"content\":\" world\"}}]}\n"
+        'data: {"choices":[{"delta":{"content":" world"}}]}\n'
         "\n"
         "data: [DONE]\n"
         "\n"

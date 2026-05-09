@@ -151,7 +151,7 @@ class ChromaVectorStore(VectorStoreABC):
         if not ids:
             return None
         docs = res.get("documents", []) or [""]
-        metas_raw = (res.get("metadatas", []) or [{}])
+        metas_raw = res.get("metadatas", []) or [{}]
         meta: dict[str, Any] = dict(metas_raw[0]) if metas_raw[0] else {}
         return Chunk(
             chunk_id=chunk_id,

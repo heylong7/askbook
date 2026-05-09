@@ -151,9 +151,7 @@ class BM25IndexUpdateNode(BasePipelineNode):
             self._index.remove(stale)
         new_chunks = list(context.get("new_chunks", []))
         if new_chunks:
-            self._index.add(
-                [(c.chunk_id, c.content, c.metadata) for c in new_chunks]
-            )
+            self._index.add([(c.chunk_id, c.content, c.metadata) for c in new_chunks])
         self._index.save()
         return context
 
