@@ -21,6 +21,10 @@ coverage.xml
 # 本地密钥
 .env
 
+# Claude Code (local only)
+.claude/
+.mcp.json
+
 # IDE
 .idea/
 .vscode/
