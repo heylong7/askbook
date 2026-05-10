@@ -3,14 +3,14 @@
 <img src="assets/icon.png" alt="askbook icon" width="520">
 </div>
 
-本地优先的私有知识库 RAG 系统——把文档导入后，用自然语言提问，获得带原文引用的准确回答。数据全程不出机器。
+askbook是一款完整RAG（Retrieval Augmented Generation）流程落地的个人知识库。通过本地stdio协议可在不同厂商agent（如Claude Code，Codex）基于MCP（Model Context Protocol）即插即用。同时本项目配备技术评估问答，可以系统性梳理RAG相关知识点。
 
 **核心特点：**
 
-- **本地优先** — ChromaDB + Ollama + BGE-M3 全本地运行，零云端依赖
+- **支持本地部署** — ChromaDB + Ollama + BGE-M3 全本地运行，零云端依赖
 - **全链路可观测** — 每次调用自动写 JSONL trace，Dashboard 5 页监控，PII 脱敏
-- **MCP 原生** — 以 MCP Server 对外暴露，Claude Desktop / Claude Code 直接调用私有知识库
-- **多 Provider** — LLM 支持 Ollama / DashScope / OpenAI / Anthropic，Embedding 支持 BGE-M3 / OpenAI / DashScope，一个 YAML 切换
+- **MCP 原生** — 以 MCP Server 对外暴露，Agent 直接调用私有知识库
+- **多 Provider** — LLM 支持 Ollama / DashScope / OpenAI / Anthropic，Embedding 支持 BGE-M3 / OpenAI / DashScope，可自定义在工厂模式下加入其他厂商，一个 YAML 切换。
 - **混合检索** — Dense (向量) + Sparse (BM25) + RRF 融合 + Cross-Encoder 精排
 - **Harness 质量门禁** — 4 项健康指标 + 6 种反模式 CI 检查 + 评估基线门禁
 
@@ -151,8 +151,8 @@ uv run askbook query "混合检索原理" --collection demo
 
 ```yaml
 ingestion:
-  chunk_size: 600        # 每块最大字符数
-  chunk_overlap: 80      # 相邻块重叠字符数
+  chunk_size: 1000        # 每块最大字符数
+  chunk_overlap: 200      # 相邻块重叠字符数
 ```
 
 **可选：语义分割（SemanticSplitter）**
@@ -181,8 +181,8 @@ Enrichment 节点扫描 chunk 中的 Markdown 图片引用 `![alt](path)`，读�
 
 ```yaml
 llm:
-  provider: anthropic
-  model: claude-sonnet-4-6       # 问答用 Claude
+  provider: dashscope
+  model: qwen-plus       # 问答模型
 
 ingestion:
   enrich_llm:                    # 图片描述用多模态模型
@@ -281,8 +281,8 @@ uv run askbook serve --collection demo --config configs/default.yaml
 | `embedding.device` | `auto` | 推理设备 (`cpu` / `cuda` / `auto`) |
 | `embedding.batch_size` | `32` | 批处理大小 |
 | `vectorstore.path` | `~/.askbook/chroma` | ChromaDB 存储路径 |
-| `ingestion.chunk_size` | `600` | 分块大小（字符） |
-| `ingestion.chunk_overlap` | `80` | 分块重叠（字符） |
+| `ingestion.chunk_size` | `1000` | 分块大小（字符） |
+| `ingestion.chunk_overlap` | `200` | 分块重叠（字符） |
 | `ingestion.enrich_llm` | `null` | 图片描述专用 LLM，不设则跳过 |
 | `query.top_k` | `10` | 粗排返回数 |
 | `query.rerank_top_k` | `5` | 精排保留数 |
@@ -462,7 +462,6 @@ uv run python scripts/anti_pattern_check.py         # 反模式扫描
 ```
 
 ---
-
 ## FAQ
 
 **`uv: command not found`** → 重开终端，确认 `~/.local/bin` 在 PATH 中
@@ -471,11 +470,11 @@ uv run python scripts/anti_pattern_check.py         # 反模式扫描
 
 **导入卡住** → 确认 ollama 在运行；大文件首次处理较慢
 
-**回答质量差** → 确认文档覆盖问题域；换更大模型或启用百炼/OpenAI
+**回答质量差** → 确认文档覆盖问题域；更换大模型或启用远程API
 
 **API Key 不生效** → 确认 `.env` 在项目根目录；或直接 `export` 设环境变量
 
-**百炼返回空或超时** → 配置 `fallback_chain` 自动降级
+**API返回空或超时** → 配置 `fallback_chain` 自动降级
 
 **路径含空格/中文** → 加引号：`uv run askbook ingest "D:\我的文档\笔记.md" --collection notes`
 
