@@ -21,8 +21,9 @@ coverage.xml
 # 本地密钥
 .env
 
-# Claude Code (local only)
-.claude/
+# Claude Code (local only, skills shared)
+.claude/*
+!.claude/skills/
 .mcp.json
 CLAUDE.md
 
