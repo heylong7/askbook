@@ -26,6 +26,9 @@ coverage.xml
 .mcp.json
 CLAUDE.md
 
+# Superpowers 自动生成的 plans/specs（不上传）
+docs/superpowers/
+
 # IDE
 .idea/
 .vscode/

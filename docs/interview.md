@@ -7,6 +7,8 @@
 3. [质量评估](#3-质量评估)
 4. [Harness 工程](#4-harness-工程)
 5. [Python 工程](#5-python-工程)
+6. [系统设计与选型](#6-系统设计与选型)
+7. [故障排查与可靠性](#7-故障排查与可靠性)
 
 ---
 
@@ -32,6 +34,41 @@ BM25 是基于词频-逆文档频率（TF-IDF）的稀疏检索方法，依赖�
 
 Embedding 是将文本映射为固定维度稠密向量的过程，是 RAG 检索阶段的核心。一个好的 embedding 模型应使语义相近的文本在向量空间中距离相近。常见的选项包括 BGE-M3（askbook 默认）、text-embedding-ada-002 等。选择 embedding 模型时需考虑维度（影响存储和检索速度）、语言支持（是否需要中英双语）和归一化方式。
 
+### 1.6 RRF 融合的公式和核心优势是什么？
+
+RRF（Reciprocal Rank Fusion）公式：`score = Σ 1 / (k + rank_i)`，k 通常取 60。
+
+核心优势：
+- **量纲无关**：BM25 使用 TF-IDF 量纲，Dense 使用余弦相似度量纲，两者分数不可直接相加。RRF 只看排名位置不看分数值，天然解决融合问题
+- **抗异常高分**：单路某文档分数虚高（如 BM25 遇到高频词），不会主导最终排序（k 常数平滑头部排名差异）
+- 缺点：丢失分数的绝对大小信息，无法区分"第 1 名很相关"和"第 1 名勉强相关"
+
+### 1.7 Cross-Encoder 与 Bi-Encoder 的本质区别是什么？
+
+| 维度 | Bi-Encoder | Cross-Encoder |
+|------|-----------|---------------|
+| 编码方式 | query 和 doc 独立编码为向量 | query+doc 拼接后一起输入模型 |
+| 交互深度 | 压缩为单一向量，丢失 token 级交互 | Attention 跨 query/doc 做 token 级交互 |
+| 预计算 | 可离线预计算所有文档向量 | 每个 (query, doc) 对需实时前向推理 |
+| 适用阶段 | 粗排（召回 top-100） | 精排（Rerank 取 top-5~10） |
+| 计算量 | O(1) — 仅计算一次 query 向量 | O(N) — N 个候选 = N 次推理 |
+
+工程实践：Bi-Encoder 粗召回 → Cross-Encoder 精排，askbook 默认使用 BGE-Reranker-v2-m3 做精排。
+
+### 1.8 Hybrid Search 与 Cascade Retrieval 有什么区别？
+
+- **Hybrid Search**：并行同时调用 Dense + BM25 双路检索，在库内用 RRF 融合排序，数据一致性强（原子操作），但每次都消耗完整 cost
+- **Cascade Retrieval**：串行分层，先尝试 BM25（$0），效果不达标再触发 Dense（可设自适应阈值），成本优势明显——70% 请求只走 BM25
+
+askbook 使用 Hybrid Search 方案，两路并行 + RRF 融合。
+
+### 1.9 如何判断知识库中有无可靠答案？
+
+多信号融合判断：
+1. **Cross-Encoder Reranker 分数**：已有精排环节，直接看 top-1 reranker 分数，低于阈值（如 0.3）判定无可靠答案（q(doc, query) 交互比 Bi-Encoder 单一向量更有区分度）
+2. **LLM 约束生成**：prompt 硬约束——"仅根据以下文档回答问题，若文档中无相关内容请直接回复'知识库中无相关内容'"
+3. **组合策略**：reranker < 阈值直接拒绝；边界区域交由 LLM 判断
+
 ---
 
 ## 2. MCP 协议
@@ -55,13 +92,51 @@ TOOL_REGISTRY: dict[str, tuple[type[BaseModel], Callable]] = {
 
 MCP Server 采用三层架构：(1) contracts 层 —— Pydantic I/O 模型；(2) tools 层 —— 纯函数 handler，通过 `ServerDeps` 显式接收依赖；(3) server 层 —— MCP SDK 包装，启动 transport 并注册工具。Handler 不直接操作 IO，所有副作用（数据库查询、Trace 写入）通过依赖接口完成，便于单元测试。
 
-### 2.4 Claude Desktop 如何与 MCP Server 集成？
+### 2.4 Claude Desktop / Claude Code 如何与 MCP Server 集成？
 
-用户在 Claude Desktop 的 MCP 配置文件中注册 server 名称、启动命令（command + args）和环境变量。Claude Desktop 以子进程方式启动 MCP Server，通过 stdio 交换 JSON-RPC 消息。用户在对话中自然语言触发的工具调用，会自动路由到对应的 MCP handler 执行并返回结果。
+用户配置 MCP Server 名称、启动命令和环境变量。Client 以子进程方式启动 MCP Server，通过 stdio 交换 JSON-RPC 消息。
+
+完整调用链路：
+```
+用户提问
+  → Client 读取 MCP 配置（.mcp.json / claude_desktop_config.json）
+  → 连接 MCP Server，发送 tools/list 请求获取工具清单
+  → LLM 根据工具的 description 和 inputSchema 判断是否需要调用
+  → 发送 tools/call 请求，传入参数
+  → Server 执行工具（如混合检索），返回结构化结果
+  → LLM 将结果融入回答生成
+```
 
 ### 2.5 MCP Transport：stdio 与 HTTP 的区别是什么？
 
 stdio transport 以子进程方式运行，通过标准输入输出通信，适合本地开发（无需网络配置），但每个工具调用共享同一进程生命周期。HTTP transport（SSE）基于 Server-Sent Events，支持远程调用和独立部署，但需要处理端口冲突和鉴权。askbook 默认使用 stdio，支持通过配置切换到 HTTP SSE。
+
+### 2.6 MCP 工具的参数验证链路如何设计？
+
+三层验证分工：
+
+```
+Client 侧（类型+范围检查）
+  → Pydantic Schema 自动验证（字段类型/范围/必填，超出自动返回 422）
+  → 业务逻辑验证（SQL 注入/XSS 防护、语义合法性）
+```
+
+```python
+from pydantic import BaseModel, Field
+
+class QueryRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=1000)
+    top_k: int = Field(default=5, ge=1, le=100)
+    filters: dict = Field(default_factory=dict)
+
+@mcp.tool()
+def query_knowledge_hub(request: QueryRequest) -> str:
+    # 业务逻辑安全验证
+    sql_keywords = ['DROP', 'DELETE', 'INSERT', 'UNION', 'SELECT']
+    if any(kw.upper() in request.query.upper() for kw in sql_keywords):
+        raise ValueError("SQL injection detected")
+    return search(request.query, request.top_k, request.filters)
+```
 
 ---
 
@@ -96,6 +171,31 @@ Score (1-5):"""
 
 Golden Dataset 是人工标注的 QA 数据集，代表系统期望的正确行为。askbook 维护一个 20 条 seed_manual.yaml。运行时将当前检索结果与 golden 答案对比计算指标，并与已记录的基线分数（`v0.1_scores.json`）比较。CI 中 `pytest -m golden` 检测任何指标下降超过 0.05 即失败，防止无意的回归。
 
+### 3.6 RAGAS 四大指标各自衡量什么？
+
+| 指标 | 衡量什么 | 是否需要 Ground Truth |
+|------|----------|----------------------|
+| **Faithfulness** | 回答中每条陈述是否有检索文档支撑（防幻觉） | 否 |
+| **Answer Relevance** | 回答是否真正回答了问题（从回答反向生成问题与原问题对比） | 否 |
+| **Context Precision** | 检索返回的 chunk 是否相关，且相关的是否排在前面 | 否 |
+| **Context Recall** | 检索到的内容是否覆盖了回答所需的全部信息 | **是** |
+
+核心优势：前三个指标无需人工标注答案（无参考评估），大幅降低评估成本。
+
+### 3.7 如何分析 RAGAS 指标矛盾？
+
+常见矛盾场景：
+- **高 Relevancy + 低 Faithfulness** → 生成侧幻觉。LLM 答得切题但编造了不存在的细节 → 降低温度、强化 prompt 约束、加后处理 NLI 验证
+- **高 Faithfulness + 低 Relevancy** → 检索侧问题。chunk 内容可靠但不相关 → 检查 chunk 召回结果、加 Query Rewriting、换 embedding 模型
+
+诊断流程：先看日志中实际召回的 chunk，判断是检索问题还是生成问题，分层排查。
+
+### 3.8 MRR 的计算方式和使用场景是什么？
+
+公式：`MRR = (1/N) * Σ (1 / rank_i)`
+
+其中 rank_i 为第 i 个问题中第一个正确答案的排名位置。MRR = 0.82 意味着正确答案平均出现在第 1.2 位附近，检索质量较高。适用于每个问题只有一个正确答案的场景，不适合需要多个相关文档的场景（此时应用 NDCG）。
+
 ---
 
 ## 4. Harness 工程
@@ -110,15 +210,30 @@ Completion Rate 衡量 MCP 工具调用成功率（status=success 的调用数 /
 
 ### 4.3 常见的 RAG 反模式有哪些？
 
-askbook 的 Harness 层检测 6 种反模式（DEV_SPEC §30.3）：(1) Context Rot —— 检索上下文过时未更新；(2) Hallucinated Completion —— 答案包含上下文没有的信息；(3) Model Drift —— LLM 升级后行为不一致；(4) Empty Citation —— 成功响应但没有 source_id；(5) Zero-Recall Query —— 检索结果为空但 LLM 强行回答；(6) Token Overflow —— prompt 超过上下文窗口。每种反模式都在 CI 中做静态分析。
+askbook 的 Harness 层检测 6 种反模式：(1) Context Rot —— 检索上下文过时未更新；(2) Hallucinated Completion —— 答案包含上下文没有的信息；(3) Model Drift —— LLM 升级后行为不一致；(4) Empty Citation —— 成功响应但没有 source_id；(5) Zero-Recall Query —— 检索结果为空但 LLM 强行回答；(6) Token Overflow —— prompt 超过上下文窗口。每种反模式都在 CI 中做静态分析。
 
 ### 4.4 静态分析如何作为 CI 门禁？
 
-静态分析在 CI 中检查 (1) Trace Schema 合规性（必填字段是否存在）；(2) ToolResponse 格式（source_ids 在 success 时必须非空）；(3) Baseline 回归（golden 指标下降超过阈值）。askbook 的 CI 门禁命令为 `ruff check && mypy --strict src/ && pytest --cov-fail-under=80`，确保代码质量符合 Harness 30.x 规范。
+静态分析在 CI 中检查 (1) Trace Schema 合规性（必填字段是否存在）；(2) ToolResponse 格式（source_ids 在 success 时必须非空）；(3) Baseline 回归（golden 指标下降超过阈值）。askbook 的 CI 门禁命令为 `ruff check && mypy --strict src/ && pytest --cov-fail-under=80`，确保代码质量符合 Harness 规范。
 
 ### 4.5 成本追踪与 Token 预算控制如何实现？
 
 askbook 在每次 LLM 调用时估算 token 消耗并折算为人民币成本（基于模型 pricing），写入 Trace 的 `estimated_cost_cny` 标签。Dashboard 汇总每个任务的 Cost/Task 指标，阈值 <= ¥0.05。通过 `quota_per_hour` 和 `token_limit_per_call` 配置项做运行时限流，防止意外高额调用。
+
+### 4.6 如何设计 RAG 系统的监控体系？
+
+核心监控维度：
+- **健康指标**（实时 Dashboard）：completion_rate >= 95%、retries_per_task <= 1.2、pass@1 >= 85%、cost_per_task <= ¥0.05
+- **质量采样**：主动监控（随机采样 10-15% 请求跑 RAGAS）+ 被动反馈（用户标记问题 case 触发评估）
+- **告警策略**：Hit Rate 下降超阈值触发告警，告警去重（同一问题 5 分钟内仅告警一次），分级（CRITICAL 立即通知 vs WARNING 记录）
+
+### 4.7 实时告警系统的分级设计原则是什么？
+
+生产级告警需包含：
+- **告警去重/静默期**：同一问题 N 分钟内仅告警一次，避免轰炸
+- **分级策略**：CRITICAL（立即 page + 自动诊断）vs WARNING（记录 + 聚合日报）vs INFO（减速通知）
+- **自适应阈值**：基于正常值标准差动态调整，而非固定阈值（如 Hit Rate 通常波动 ±5%，固定 50% 阈值太宽松）
+- **自动诊断**：告警触发时自动对比召回 chunk、检查各组件延迟、生成诊断报告
 
 ---
 
@@ -177,3 +292,144 @@ def test_overview_page_renders(tmp_path: Path) -> None:
     at.run(timeout=20)
     assert not at.exception
 ```
+
+### 5.6 工厂模式如何在 askbook 中实现 Provider 切换？
+
+askbook 通过 Registry + YAML 配置 + 动态创建实现 Provider 工厂：
+
+- 抽象基类定义接口约定（Embedder、LLMProvider 等）
+- Registry 字典维护 provider name → 具体实现的映射
+- YAML 配置驱动选择（改 `embedding.provider: bge-m3` 即可切换），业务代码零修改
+
+```python
+class ProviderFactory:
+    _registry = {
+        "bge-m3": BGEEmbedding,
+        "openai": OpenAIEmbedding,
+        "dashscope": DashScopeEmbedding,
+    }
+
+    @staticmethod
+    def create(config: dict):
+        provider_type = config["provider"]
+        if provider_type not in ProviderFactory._registry:
+            raise ValueError(f"Unknown provider: {provider_type}")
+        return ProviderFactory._registry[provider_type](**config.get("params", {}))
+```
+
+关键要素：抽象基类（接口约定）、Registry（动态查表）、错误处理（类型不存在时抛异常）、参数隔离（按 provider 分离配置）。
+
+---
+
+## 6. 系统设计与选型
+
+### 6.1 ChromaDB 与其他向量数据库（Faiss、Qdrant、Milvus）的选型依据是什么？
+
+| 向量库 | 定位 | 数据量 | 特点 |
+|--------|------|--------|------|
+| **Faiss** | 纯库，无持久化 | 研究场景 | 无服务端，需自行管理索引 |
+| **ChromaDB** | 嵌入式，零运维 | < 10万文档 | 本地开发首选，开发效率高 |
+| **Qdrant** | 中小规模生产 | 10万 ~ 1000万 | API 简洁、文档清晰、中小团队友好 |
+| **Milvus** | 分布式大规模 | 1000万+ | 支持水平扩展，运维成本高 |
+
+askbook 选择 ChromaDB 原因：本地部署场景为主、零运维需求、`pip install` 即可用。升级触发点：查询延迟 > 500ms 或数据量 > 50万文档。
+
+### 6.2 Embedding 维度如何选择？1024 vs 3072 的权衡？
+
+- 1024 维（BGE-M3）：适合本地部署，存储和查询开销小，10 万文档内可达满意 Hit Rate
+- 3072 维（text-embedding-3-large）：精度更高，但存储空间增长 3 倍，查询速度（O(d)）约慢 3 倍
+- OpenAI 官方数据：256 维丧失 1-2% Hit Rate，1024 vs 3072 丧失 <0.5%
+
+决策公式：综合评估 Hit Rate + 延迟 + 存储成本。小规模本地 < 10 万文档 → 1024 维足够。当 Hit Rate < 0.5 且延迟可接受时考虑升维。
+
+### 6.3 HNSW 向量索引的原理是什么？
+
+HNSW（Hierarchical Navigable Small World）：
+- **结构**：多层图结构，底层包含所有向量节点，每向上层随机采样越来越少节点
+- **查询过程**：从最顶层稀疏图的入口点出发，找局部最近邻，逐层下降，每层缩小搜索范围，最终在底层精确检索
+- **直觉类比**：类似跳表——顶层是"高速公路"快速定位区域，底层是"小路"精确抵达
+- **复杂度**：O(log N)，远优于暴力搜索 O(N)
+- **关键参数**：`ef_construction`（构建时搜索宽度）、`M`（每个节点最大连接数）
+- **内存成本**：每个节点存储 M 条边 × 层数，1 亿节点时内存可能达 200GB+
+
+ChromaDB 默认使用 HNSW 索引。
+
+### 6.4 HNSW vs IVF 该如何选择？
+
+| 维度 | HNSW | IVF |
+|------|------|-----|
+| 原理 | 分层图 + 贪心导航 | KMeans 聚类 + 倒排索引 |
+| 查询复杂度 | O(log N) | O(N/K) — 仅搜索相关 cluster |
+| 内存 | 大（每个节点存 M 条边） | 小（只存 K 个质心） |
+| 适用 | < 1000 万，精度优先 | > 1000 万，内存可控 |
+| 构建 | 慢（需构建多层图） | 快（KMeans 一次性聚类） |
+
+结论：askbook 本地部署场景（< 10 万文档）用 HNSW（ChromaDB 默认）；扩展到千万级时考虑 Milvus 的 IVF 索引。
+
+### 6.5 如何设计支持 100 并发的 RAG 服务架构？
+
+三层架构设计：
+
+**请求层**：FastAPI + async/await 异步处理非阻塞 I/O，Redis 队列削峰填谷，K8s Ingress 负载均衡
+
+**LLM 推理层**（核心瓶颈）：部署 vLLM，核心技术是 Continuous Batching（请求完成立即移出 batch，新请求随时补入，GPU 不等最长序列）+ PagedAttention（KV Cache 分页管理，避免显存碎片）
+
+**向量检索层**：ChromaDB → Milvus 分布式部署水平扩展，语义缓存（Semantic Cache）对高频相似 query 缓存结果
+
+### 6.6 长对话上下文压缩的策略有哪些？
+
+- **滑动窗口**：保留最近 N 轮对话（如 5 轮），超出截断
+- **摘要压缩**：超出窗口的历史用 LLM 压缩为摘要，注入 system prompt（需保留决策点、核心问题、答案结论）
+- **外部存储 + 按需加载**：元数据增强（日期、标题、摘要）+ 具体内容分离存储，LLM 判断需要时提取
+- **Token 预算分配**：动态优先级 — query > generation > retrieved chunks > history
+
+---
+
+## 7. 故障排查与可靠性
+
+### 7.1 当用户反馈"文档里有答案但系统回答不出来"时，如何系统排查？
+
+RAG 全链路排查方法（分阶段验证）：
+
+**1. 文档入库阶段** — 验证文档是否成功入库。检查 collection.get() 和 ingestion 日志。（常见问题：PDF 解析失败、编码问题）
+
+**2. 分块阶段** — 检查答案所在段落是否被完整保留在某个 chunk 中。（常见问题：chunk_size 过小导致答案跨 chunk 截断、关键句在边界处被分割）
+
+**3. Embedding 阶段** — 用答案所在 chunk 文本直接做 embedding，与 query embedding 计算余弦相似度。（常见问题：中英文混用、学术缩写 vs 全称）
+
+**4. 召回阶段** — 打印 top-k 召回结果，确认目标 chunk 是否在其中。调大 top_k 看是否出现。（常见问题：top_k 过小、双路均未命中、RRF 权重不当）
+
+**5. Rerank 阶段** — 确认 chunk 召回到了但 Rerank 后排名掉出截断位置。（常见问题：Reranker 对领域数据表现不佳、截断数量过小）
+
+**6. LLM 生成阶段** — 将正确 chunk 直接塞入 prompt，LLM 能否正确回答。（常见问题：Context 过长导致"迷失在中间"、System Prompt 约束过严）
+
+排查工具：askbook trace 日志、Dashboard 页面 4 Trace 查看器、RAGAS 分项指标定位瓶颈。
+
+### 7.2 MCP 工具的可靠性设计包含哪些要素？
+
+完整的 MCP 工具可靠性机制：
+- **重试策略**：Exponential Backoff（1s → 2s → 4s），非等额间隔
+- **熔断器模式**（Circuit Breaker）：连续失败 N 次后自动断路，停止发请求防止雪崩
+- **超时分层**：向量库 500ms / LLM 30s / 整体请求 60s
+- **可重试 vs 不可重试**：区分 4xx（参数问题，不重试）vs 5xx（服务端问题，重试）
+- **降级链**：向量库不可用 → 降级到纯 BM25 → 返回"服务暂时不可用"
+
+### 7.3 如何用隔离变量法排查 RAG 系统性能退化？
+
+1. 用相同 query 对比本地 LLM vs 远程 API，隔离网络影响
+2. 用不同长度 prompt 测试，确认 token 数量是否影响延迟
+3. 对比相同 query 在不同时间点的 trace 数据（JSONL），找变化的环节
+4. 对照实验：关闭 Query Rewriting / HyDE / Rerank 等节点逐一排除
+
+关键思路：每次只改变一个变量，观察指标变化，缩小问题范围。
+
+### 7.4 RAG 系统可靠性设计的全链路容错架构是什么？
+
+| 层级 | 策略 | 说明 |
+|------|------|------|
+| **缓存** | Semantic Cache | 高频相似 query 0 cost 返回（一级防线） |
+| **检索降级** | 向量库 → BM25 → 空结果 | 向量库不可用时自动降级 |
+| **生成降级** | LLM A → LLM B → 仅返回文档 | Fallback 链 |
+| **断路器** | 连续失败自动断路 | 防止雪崩 |
+| **监控告警** | 4 项健康指标 + 6 种反模式 CI | 实时发现异常 |
+
