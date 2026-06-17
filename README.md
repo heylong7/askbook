@@ -3,7 +3,7 @@
 <img src="assets/icon.png" alt="askbook icon" width="520">
 </div>
 
-askbook是一款完整RAG（Retrieval Augmented Generation）流程落地的个人知识库。通过本地stdio协议可在不同厂商agent（如Claude Code，Codex）基于MCP（Model Context Protocol）即插即用。同时本项目配备技术评估问答，可以系统性梳理RAG相关知识点。
+askbook是一款完整RAG（Retrieval Augmented Generation）流程落地的个人知识库。通过本地stdio协议可在不同厂商agent（如Claude Code，Codex）基于MCP（Model Context Protocol）即插即用。
 
 **核心特点：**
 
